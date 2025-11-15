@@ -1,14 +1,38 @@
-# Week 8 — Database Lab (CST1510)
+# A modular Python-based system designed for managing cyber incidents, IT tickets, dataset metadata, and user authentication.
 
-## Quick start
+Built for CST1510 coursework using **Python, SQLite, and a clean service-layer architecture**.
 
-1. Create virtual env: `python -m venv .venv`
-2. Activate env and `pip install -r requirements.txt`
-3. Place CSVs in `DATA/` if you want them imported.
-4. Run `python main.py` to create DB and run demo.
+## Features
 
-## Notes
+### **User Authentication**
 
-- All DB writes use parameterised queries to avoid SQL injection.
-- Passwords stored as bcrypt hashes.
-- Use DB Browser for SQLite to view `DATA/intelligence_platform.db`.
+- Register / login with secure password hashing
+- Automated migration from `users.txt`
+- Centralised authentication logic in `user_service.py`
+
+### **Cyber Incident Management**
+
+- Create, read, update, delete incidents
+- CSV ingestion of `cyber_incidents.csv`
+- Incident fields processed automatically (timestamp, type, severity, status, description)
+
+### **IT Ticket Tracking**
+
+- Loads `it_tickets.csv`
+- Stores ticket priority, assigned staff, status, resolution hours, timestamps
+
+### **Dataset Metadata Handling**
+
+- Loads `datasets_metadata.csv`
+- Saves dataset info (rows, columns, uploader, upload date)
+
+### **Database Structure**
+
+- SQLite database auto-created on first run
+- Tables:
+  - `users`
+  - `cyber_incidents`
+  - `it_tickets`
+  - `datasets_metadata`
+
+### **Fully Modular Architecture**
