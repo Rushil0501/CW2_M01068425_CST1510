@@ -1,2 +1,4 @@
 pandas
 bcrypt
+streamlit
+plotly
