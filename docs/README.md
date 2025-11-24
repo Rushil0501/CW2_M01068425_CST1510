@@ -1,14 +1,14 @@
 # Multi-Domain Intelligence Platform (CST1510)
 
-A modular, secure web application designed for managing cyber incidents, IT tickets, and dataset metadata. [cite_start]Built for CST1510 coursework using **Python, Streamlit, SQLite, and a clean service-layer architecture**[cite: 7, 8, 136, 387].
+A modular, secure web application designed for managing cyber incidents, IT tickets, and dataset metadata. Built for CST1510 coursework using **Python, Streamlit, SQLite, and a clean service-layer architecture**.
 
 ## 🛠️ Tech Stack
 
-- **Frontend:** Streamlit, Plotly (Interactive Dashboards) [cite: 387, 391]
-- **Backend:** Python 3.x [cite: 7]
-- **Database:** SQLite3 [cite: 100]
-- **Security:** Bcrypt (Password Hashing & Salting) [cite: 131, 473]
-- **Data Processing:** Pandas [cite: 130]
+- **Frontend:** Streamlit, Plotly (Interactive Dashboards)
+- **Backend:** Python 3.x
+- **Database:** SQLite3
+- **Security:** Bcrypt (Password Hashing & Salting)
+- **Data Processing:** Pandas
 
 ---
 
@@ -16,35 +16,35 @@ A modular, secure web application designed for managing cyber incidents, IT tick
 
 ### **Week 7: Secure Authentication System**
 
-Implemented the core security layer using file-based storage before the database migration[cite: 453, 661]:
+Implemented the core security layer using file-based storage before the database migration:
 
-- **Password Security:** Uses `bcrypt` for hashing and salting passwords to ensure no plaintext storage[cite: 473, 663].
-- **User Management:** Registration and Login logic with duplicate username prevention[cite: 663, 664].
+- **Password Security:** Uses `bcrypt` for hashing and salting passwords to ensure no plaintext storage.
+- **User Management:** Registration and Login logic with duplicate username prevention.
 - **Advanced Security Features (Challenges Completed):**
-  - **Account Lockout:** Temporarily locks account after 3 failed attempts[cite: 713].
-  - **Password Strength Checker:** Enforces complexity (Length, Case, Digits)[cite: 691, 701].
-  - **Role-Based Access:** Support for 'admin', 'analyst', and 'user' roles[cite: 705, 707].
-  - **Session Tokens:** Generates secure hex tokens upon login[cite: 715, 720].
+  - **Account Lockout:** Temporarily locks account after 3 failed attempts.
+  - **Password Strength Checker:** Enforces complexity (Length, Case, Digits).
+  - **Role-Based Access:** Support for 'admin', 'analyst', and 'user' roles.
+  - **Session Tokens:** Generates secure hex tokens upon login.
 
 ### **Week 8: Database Architecture & Data Pipeline**
 
-Transitioned from text files to a professional SQL database[cite: 100, 376]:
+Transitioned from text files to a professional SQL database:
 
-- **SQLite Integration:** Replaced `users.txt` with a relational database (`intelligence_platform.db`)[cite: 102, 384].
-- **Data Migration:** Automated script (`migrate_users_from_file`) to move legacy users to the database without losing data[cite: 273].
-- **CSV Ingestion:** Automated loading of `cyber_incidents.csv`, `it_tickets.csv`, and `datasets_metadata.csv` using Pandas[cite: 306, 314].
-- **CRUD Operations:** Full Create, Read, Update, Delete functionality for all domains (Incidents, Tickets, Datasets)[cite: 105, 317].
+- **SQLite Integration:** Replaced `users.txt` with a relational database (`intelligence_platform.db`).
+- **Data Migration:** Automated script (`migrate_users_from_file`) to move legacy users to the database without losing data.
+- **CSV Ingestion:** Automated loading of `cyber_incidents.csv`, `it_tickets.csv`, and `datasets_metadata.csv` using Pandas.
+- **CRUD Operations:** Full Create, Read, Update, Delete functionality for all domains (Incidents, Tickets, Datasets).
 
 ### **Week 9: Interactive Web Interface (Streamlit)**
 
-The project now features a fully functional web frontend[cite: 387]:
+The project now features a fully functional web frontend:
 
 - **Multi-Page App Structure:**
   - **`Home.py`**: Secure Login and Registration tabs.
-  - **`pages/Dashboard.py`**: Main intelligence dashboard protected by session state[cite: 51].
-- **Visualisations:** Interactive bar charts and pie charts using **Plotly** to analyse incident types and severity[cite: 391].
-- **Session Management:** Secure state handling to keep users logged in across pages[cite: 392].
-- **Live Reporting:** Users can submit new incidents via a form, which updates the database in real-time[cite: 390].
+  - **`pages/Dashboard.py`**: Main intelligence dashboard protected by session state.
+- **Visualisations:** Interactive bar charts and pie charts using **Plotly** to analyse incident types and severity.
+- **Session Management:** Secure state handling to keep users logged in across pages.
+- **Live Reporting:** Users can submit new incidents via a form, which updates the database in real-time.
 
 ---
 
