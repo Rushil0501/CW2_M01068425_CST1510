@@ -50,4 +50,12 @@ The project now features a fully functional web frontend:
 
 ## 📂 Project Structure (Week 9)
 
-This project is organised to keep everything clean, logical, and easy to maintain. At the top level, you’ve got the main Streamlit files: Home.py, which handles the login page, and main.py, which you run once to set up the database. The pages folder holds extra Streamlit screens like the Dashboard, while the DATA folder stores all the actual information the system uses – including the SQLite database, old user records, and any CSV files. The real engine of the application lives inside the app directory: the data subfolder manages database connections and SQL queries, while the services subfolder contains the business logic, such as user authentication and password handling. Altogether, the structure makes the system easy to understand, extend, and debug, with every part of the project having a clear purpose.
+This project is organised to keep everything clean, logical, and easy to maintain.
+
+At the top level, you’ve got the main Streamlit files: Home.py, which handles the login page, and main.py, which you run once to set up the database.
+
+The pages folder holds extra Streamlit screens like the Dashboard, while the DATA folder stores all the actual information the system uses – including the SQLite database, old user records, and any CSV files.
+
+The real engine of the application lives inside the app directory: the data subfolder manages database connections and SQL queries, while the services subfolder contains the business logic, such as user authentication and password handling.
+
+Altogether, the structure makes the system easy to understand, extend, and debug, with every part of the project having a clear purpose.
