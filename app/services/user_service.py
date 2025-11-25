@@ -112,40 +112,46 @@ def register_user(username, password, role='user'):
     return False, "Registration failed (Database Error)."
 
 
+# app/services/user_service.py (Partial Update)
+
+# ... keeps existing imports and helper functions ...
+
 def login_user(username, password):
     """Authenticate user with lockout protection."""
 
-    # 1. Check Lockout (Challenge 3 Logic)
+    # 1. Check Lockout
     if username in failed_login_attempts:
         count, last_attempt = failed_login_attempts[username]
         if count >= FAILED_LOGIN_LIMIT:
             time_since = time.time() - last_attempt
             if time_since < LOCKOUT_DURATION:
                 remaining = int(LOCKOUT_DURATION - time_since)
-                return False, f"Account locked. Try again in {remaining}s."
+                # Return 4 values: Success, Msg, Token, Role
+                return False, f"Account locked. Try again in {remaining}s.", None, None
             else:
-                del failed_login_attempts[username]  # Reset after timeout
+                del failed_login_attempts[username]
 
     # 2. Fetch from DB
     row = get_user_by_username(username)
     if not row:
         _record_failed_login(username)
-        return False, "User not found."
+        return False, "User not found.", None, None
 
     # 3. Verify Password
-    # accessing by column name because of sqlite3.Row
     stored_hash = row["password_hash"]
     if bcrypt.checkpw(password.encode('utf-8'), stored_hash.encode('utf-8')):
-        # Success! Clear failures and generate token
         if username in failed_login_attempts:
             del failed_login_attempts[username]
 
         token = create_session(username)
-        return True, f"Welcome, {username}! (Session: {token[:8]}...)"
+        user_role = row["role"]  # Get role from DB
+
+        # SUCCESS: Return True, Message, Token, Role
+        return True, "Login Successful", token, user_role
 
     # 4. Handle Failure
     _record_failed_login(username)
-    return False, "Incorrect password."
+    return False, "Incorrect password.", None, None
 
 
 def migrate_users_from_file(filepath: Path = USERS_TXT):
