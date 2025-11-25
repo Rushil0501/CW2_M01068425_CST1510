@@ -116,10 +116,20 @@ def register_user(username, password, role='user'):
 
 # ... keeps existing imports and helper functions ...
 
-def login_user(username, password):
-    """Authenticate user with lockout protection."""
+# app/services/user_service.py (Partial Update)
 
-    # 1. Check Lockout
+# ... keeps existing imports and helper functions ...
+
+# app/services/user_service.py (Partial Update)
+
+# ... keeps existing imports and helper functions ...
+
+# app/services/user_service.py (Update login_user)
+
+def login_user(username, password):
+    """Authenticate user and return their role."""
+
+    # 1. Check Lockout (Existing Logic)
     if username in failed_login_attempts:
         count, last_attempt = failed_login_attempts[username]
         if count >= FAILED_LOGIN_LIMIT:
@@ -127,11 +137,11 @@ def login_user(username, password):
             if time_since < LOCKOUT_DURATION:
                 remaining = int(LOCKOUT_DURATION - time_since)
                 # Return 4 values: Success, Msg, Token, Role
-                return False, f"Account locked. Try again in {remaining}s.", None, None
+                return False, f"Locked out. Wait {remaining}s.", None, None
             else:
                 del failed_login_attempts[username]
 
-    # 2. Fetch from DB
+    # 2. Fetch User
     row = get_user_by_username(username)
     if not row:
         _record_failed_login(username)
@@ -143,10 +153,10 @@ def login_user(username, password):
         if username in failed_login_attempts:
             del failed_login_attempts[username]
 
+        # --- NEW: Retrieve Role and Create Token ---
         token = create_session(username)
-        user_role = row["role"]  # Get role from DB
+        user_role = row["role"]  # Fetch the role column
 
-        # SUCCESS: Return True, Message, Token, Role
         return True, "Login Successful", token, user_role
 
     # 4. Handle Failure
