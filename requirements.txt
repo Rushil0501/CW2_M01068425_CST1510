@@ -2,3 +2,4 @@ pandas
 bcrypt
 streamlit
 plotly
+google-generativeai

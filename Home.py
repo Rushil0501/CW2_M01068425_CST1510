@@ -1,76 +1,124 @@
 import streamlit as st
 from app.services.user_service import login_user, register_user
 
-st.set_page_config(page_title="Login Portal", page_icon="🔐", layout="centered")
+# 1. Page Config
+st.set_page_config(page_title="Login", page_icon="🔐", layout="centered")
 
-# Initialize Session State
+# 2. Realistic CSS (Hidden Sidebar + Glowing Buttons)
+
+
+def set_visuals():
+    st.markdown("""
+        <style>
+        /* --- HIDE SIDEBAR --- */
+        [data-testid="stSidebarNav"] {display: none;}
+        section[data-testid="stSidebar"] {display: none;}
+
+        /* --- BACKGROUND --- */
+        .stApp {
+            background-color: #000000;
+            background-image: radial-gradient(circle at 50% 100%, rgba(255, 20, 147, 0.5) 0%, rgba(0, 0, 0, 1) 50%);
+            background-attachment: fixed;
+        }
+
+        /* --- GLASS FORMS --- */
+        div[data-testid="stForm"], div[data-testid="stTabs"] {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 20, 147, 0.3);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5);
+            border-radius: 16px;
+            padding: 20px;
+        }
+
+        /* --- REALISTIC GLOWING BUTTONS --- */
+        div.stButton > button {
+            background: linear-gradient(90deg, #FF1493, #C71585);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(255, 20, 147, 0.5); /* Pink Glow */
+            transition: all 0.3s ease;
+            font-weight: bold;
+        }
+        div.stButton > button:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 20px rgba(255, 20, 147, 0.9);
+        }
+
+        /* Text Inputs */
+        .stTextInput input {
+            background-color: rgba(0, 0, 0, 0.5) !important;
+            color: white !important;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        h1 {
+            background: linear-gradient(90deg, #FF1493, #FFFFFF);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        </style>
+    """, unsafe_allow_html=True)
+
+
+set_visuals()
+
+# 3. Session Logic
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
 if "username" not in st.session_state:
     st.session_state.username = ""
 if "role" not in st.session_state:
-    st.session_state.role = ""  # We will store 'cyber', 'data', or 'it' here
+    st.session_state.role = ""
+if "token" not in st.session_state:
+    st.session_state.token = ""
 
-st.title("🔐 Enterprise Portal")
+st.title("🔐 Multi-Domain Intelligence Platform")
 
-# Redirect if logged in
 if st.session_state.logged_in:
-    st.success(
-        f"Logged in as {st.session_state.username} ({st.session_state.role})")
-    if st.button("Go to My Dashboard", type="primary"):
+    # If already logged in, show a big glowing button to go to Dashboard
+    st.success(f"User: {st.session_state.username}")
+    if st.button("🚀 Launch Dashboard"):
         st.switch_page("pages/Dashboard.py")
     st.stop()
 
 tab1, tab2 = st.tabs(["Login", "Register"])
 
-# --- LOGIN TAB ---
 with tab1:
     with st.form("login_form"):
         username = st.text_input("Username")
         password = st.text_input("Password", type="password")
-        submit_login = st.form_submit_button("Log In", type="primary")
-
-    if submit_login:
-        # Expect 4 return values now
-        success, msg, token, role = login_user(username, password)
-        if success:
-            st.session_state.logged_in = True
-            st.session_state.username = username
-            st.session_state.token = token
-            st.session_state.role = role  # Save role to session
-            st.success("Login successful! Redirecting...")
-            st.switch_page("pages/Dashboard.py")
-        else:
-            st.error(msg)
-
-# --- REGISTER TAB ---
-with tab2:
-    st.info("New accounts must be assigned to a specific department.")
-    with st.form("register_form"):
-        new_user = st.text_input("Choose Username")
-        new_pass = st.text_input("Choose Password", type="password")
-
-        # STRICT ROLE SELECTION
-        # We map friendly names to database codes
-        role_options = {
-            "Cyber Security Analyst": "cyber",
-            "Data Scientist": "data",
-            "IT Support Specialist": "it"
-        }
-        selected_label = st.selectbox(
-            "Select Department", list(role_options.keys()))
-        new_role = role_options[selected_label]
-
-        submit_register = st.form_submit_button("Create Account")
-
-    if submit_register:
-        if not new_user or not new_pass:
-            st.error("All fields are required.")
-        else:
-            # Pass the selected 'new_role' to the backend
-            success, msg = register_user(new_user, new_pass, role=new_role)
+        if st.form_submit_button("Log in"):
+            success, msg, token, role = login_user(username, password)
             if success:
-                st.success(
-                    f"Account created for {selected_label}! Please log in.")
+                st.session_state.logged_in = True
+                st.session_state.username = username
+                st.session_state.token = token
+                st.session_state.role = role
+                st.switch_page("pages/Dashboard.py")
             else:
                 st.error(msg)
+
+with tab2:
+    with st.form("register_form"):
+        new_user = st.text_input("Username")
+        new_pass = st.text_input("Password", type="password")
+        conf_pass = st.text_input("Confirm Password", type="password")
+        role_label = st.selectbox("Department", [
+                                  "Cyber Security Analyst", "Data Scientist", "IT Support Specialist"])
+
+        if st.form_submit_button("Create ID"):
+            if not new_user or not new_pass or not conf_pass:
+                st.error("Fields missing.")
+            elif new_pass != conf_pass:
+                st.error("Passwords do not match.")
+            else:
+                role_map = {"Cyber Security Analyst": "cyber",
+                            "Data Scientist": "data", "IT Support Specialist": "it"}
+                success, msg = register_user(
+                    new_user, new_pass, role=role_map[role_label])
+                if success:
+                    st.success("Created! Switch to Login.")
+                else:
+                    st.error(msg)
