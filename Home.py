@@ -1,10 +1,11 @@
 import streamlit as st
 from app.services.user_service import login_user, register_user
 
-# 1. Page Config
-st.set_page_config(page_title="Login", page_icon="🔐", layout="centered")
+# 1. Page Config (UPDATED TITLE & LOGO)
+st.set_page_config(page_title="Multi-Domain Intelligence Platform",
+                   page_icon="</>", layout="centered")
 
-# 2. Realistic CSS (Hidden Sidebar + Glowing Buttons)
+# 2. Realistic CSS (Hidden Sidebar + Glowing Buttons + Footer)
 
 
 def set_visuals():
@@ -58,8 +59,28 @@ def set_visuals():
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
         }
+
+        /* --- FOOTER (RR 🍃) --- */
+        .footer-signature {
+            position: fixed;
+            bottom: 10px;
+            right: 15px;
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.6);
+            font-family: monospace;
+            background: rgba(0, 0, 0, 0.4);
+            padding: 4px 8px;
+            border-radius: 5px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(2px);
+            pointer-events: none; /* Let clicks pass through */
+        }
         </style>
     """, unsafe_allow_html=True)
+
+    # Inject the footer HTML
+    st.markdown('<div class="footer-signature">RR 🍃</div>',
+                unsafe_allow_html=True)
 
 
 set_visuals()
@@ -74,10 +95,10 @@ if "role" not in st.session_state:
 if "token" not in st.session_state:
     st.session_state.token = ""
 
-st.title("🔐 Multi-Domain Intelligence Platform")
+# UPDATED MAIN TITLE
+st.title("</> Multi-Domain Intelligence Platform")
 
 if st.session_state.logged_in:
-    # If already logged in, show a big glowing button to go to Dashboard
     st.success(f"User: {st.session_state.username}")
     if st.button("🚀 Launch Dashboard"):
         st.switch_page("pages/Dashboard.py")
@@ -89,7 +110,7 @@ with tab1:
     with st.form("login_form"):
         username = st.text_input("Username")
         password = st.text_input("Password", type="password")
-        if st.form_submit_button("Log in"):
+        if st.form_submit_button("Authenticate"):
             success, msg, token, role = login_user(username, password)
             if success:
                 st.session_state.logged_in = True

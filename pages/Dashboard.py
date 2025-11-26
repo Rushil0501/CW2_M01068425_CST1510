@@ -12,7 +12,8 @@ from app.data.datasets import list_datasets, load_csv_to_table
 from app.services.ai_service import get_gemini_response
 
 # 1. Page Config
-st.set_page_config(page_title="Dashboard", layout="wide", page_icon="🏢")
+st.set_page_config(page_title="Multi-Domain Intelligence Platform",
+                   layout="wide", page_icon="</>")
 
 # 2. Visuals & CSS
 
@@ -73,11 +74,11 @@ def set_visuals():
             margin-left: auto;
         }
         
-        /* --- CHANGED: Emoji keeps original color --- */
+        /* --- CHANGED: Emoji Glow Effect --- */
         .profile-icon {
             font-size: 32px;
-            /* Removed the gradient text fill so standard emoji colors show */
-            filter: drop-shadow(0 2px 4px rgba(0,0,0, 0.5));
+            /* White drop-shadow creates a 'backlit' glow that enhances the emoji's natural colors */
+            filter: drop-shadow(0 0 8px rgba(255, 255, 255, 0.6));
         }
         
         .profile-text-col {
@@ -180,13 +181,13 @@ with st.container():
 
     with c1:
         if role == 'cyber':
-            title = "🛡️ CYBER OPS"
+            title = "🕵️‍♂️ CYBER OPS"
         elif role == 'it':
-            title = "🎫 IT SUPPORT"
+            title = "🛠️ IT SUPPORT"
         elif role == 'data':
-            title = "📊 DATA LAB"
+            title = "🧠 DATA LAB"
         else:
-            title = "🏢 ADMIN PANEL"
+            title = "⚡ ADMIN PANEL"
 
         st.markdown(f"""
             <h1 style='margin:0; padding:0; font-size: 36px; 
@@ -300,17 +301,17 @@ elif role == "data":
 st.markdown("---")
 
 # ---------------------------------------------------------
-# 6. AI COMMAND CONSOLE (Renamed as per Dashboard)
+# 6. AI COMMAND CONSOLE
 # ---------------------------------------------------------
 
 if role == 'cyber':
-    ai_name = "🛡️ CYBER OPS AI"
+    ai_name = "🕵️‍♂️ CYBER OPS AI"
 elif role == 'it':
-    ai_name = "🎫 IT SUPPORT AI"
+    ai_name = "🛠️ IT SUPPORT AI"
 elif role == 'data':
-    ai_name = "📊 DATA LAB AI"
+    ai_name = "🧠 DATA LAB AI"
 else:
-    ai_name = "🏢 ADMIN AI"
+    ai_name = "⚡ ADMIN AI"
 
 st.subheader(ai_name)
 
