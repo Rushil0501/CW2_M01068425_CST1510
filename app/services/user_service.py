@@ -4,12 +4,15 @@ User-level business logic: register, login, migrate, and validation.
 from app.data.users import get_user_by_username, insert_user
 from app.data.db import connect_database
 import bcrypt
-import re  # <--- We need this for the new validation
+import re
 import time
 import secrets
 from pathlib import Path
 
 # --- Configuration & Globals ---
+DATA_DIR = Path("DATA")
+USERS_TXT = DATA_DIR / "users.txt"
+
 FAILED_LOGIN_LIMIT = 3
 LOCKOUT_DURATION = 300  # 5 minutes
 failed_login_attempts = {}  # {username: (count, timestamp)}
@@ -21,11 +24,9 @@ def validate_username(username):
     if not (3 <= len(username) <= 20):
         return False, "Username must be between 3 and 20 characters."
 
-    # --- CHANGED: Allow letters (a-z), numbers (0-9), underscore (_), and space ( ) ---
-    # The regex pattern "^[a-zA-Z0-9_ ]+$" ensures only these characters are allowed.
+    # Allow letters, numbers, spaces, and underscores
     if not re.match(r"^[a-zA-Z0-9_ ]+$", username):
         return False, "Username allows only letters, numbers, spaces, and underscores."
-
     return True, ""
 
 
@@ -78,7 +79,8 @@ def _record_failed_login(username):
 
 
 def register_user(username, password, role='user'):
-    """Register user with validation, hashing, and role."""
+    """Register user: Validate -> Hash -> Save to DB -> Save to TXT."""
+
     # 1. Validate Inputs
     valid_user, msg = validate_username(username)
     if not valid_user:
@@ -88,7 +90,7 @@ def register_user(username, password, role='user'):
     if not valid_pass:
         return False, msg
 
-    # 2. Check Database
+    # 2. Check Database (Prevent Duplicates)
     if get_user_by_username(username):
         return False, f"Username '{username}' already exists."
 
@@ -97,11 +99,25 @@ def register_user(username, password, role='user'):
     salt = bcrypt.gensalt()
     hashed = bcrypt.hashpw(pw_bytes, salt).decode('utf-8')
 
-    # 4. Insert into DB
+    # 4. Insert into Database (Primary Storage)
     new_id = insert_user(username, hashed, role)
+
     if new_id:
+        # --- 5. NEW: Save to users.txt (Backup Storage) ---
+        try:
+            # Ensure directory exists
+            DATA_DIR.mkdir(parents=True, exist_ok=True)
+
+            with open(USERS_TXT, "a", encoding="utf-8") as f:
+                # Format: username,password_hash,role
+                f.write(f"{username},{hashed},{role}\n")
+
+        except Exception as e:
+            print(f"Warning: Could not save to users.txt: {e}")
+
         strength = check_password_strength(password)
         return True, f"User registered as {role}! (Strength: {strength})"
+
     return False, "Registration failed (Database Error)."
 
 
@@ -115,7 +131,6 @@ def login_user(username, password):
             time_since = time.time() - last_attempt
             if time_since < LOCKOUT_DURATION:
                 remaining = int(LOCKOUT_DURATION - time_since)
-                # Return 4 values: Success, Msg, Token, Role
                 return False, f"Locked out. Wait {remaining}s.", None, None
             else:
                 del failed_login_attempts[username]
@@ -129,11 +144,9 @@ def login_user(username, password):
     # 3. Verify Password
     stored_hash = row["password_hash"]
     if bcrypt.checkpw(password.encode('utf-8'), stored_hash.encode('utf-8')):
-        # Success! Clear failures
         if username in failed_login_attempts:
             del failed_login_attempts[username]
 
-        # Generate Token & Get Role
         token = create_session(username)
         role = row["role"]
 
@@ -144,8 +157,8 @@ def login_user(username, password):
     return False, "Incorrect password.", None, None
 
 
-def migrate_users_from_file(filepath: Path = Path("DATA/users.txt")):
-    """Migrate users from users.txt to DB."""
+def migrate_users_from_file(filepath: Path = USERS_TXT):
+    """Migrate users from users.txt to DB (Useful for initial setup)."""
     if not filepath.exists():
         return 0
     conn = connect_database()
