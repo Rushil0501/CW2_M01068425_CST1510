@@ -101,7 +101,15 @@ st.title("</> Multi-Domain Intelligence Platform")
 if st.session_state.logged_in:
     st.success(f"User: {st.session_state.username}")
     if st.button("🚀 Launch Dashboard"):
-        st.switch_page("pages/Dashboard.py")
+        role = st.session_state.role
+        if role == "cyber":
+            st.switch_page("pages/Cybersecurity.py")
+        elif role == "it":
+            st.switch_page("pages/IT_Operations.py")
+        elif role == "data":
+            st.switch_page("pages/Data_Science.py")
+        else:
+            st.switch_page("pages/AI_Assistant.py")
     st.stop()
 
 tab1, tab2 = st.tabs(["Login", "Register"])
@@ -117,7 +125,15 @@ with tab1:
                 st.session_state.username = username
                 st.session_state.token = token
                 st.session_state.role = role
-                st.switch_page("pages/Dashboard.py")
+
+                if role == "cyber":
+                    st.switch_page("pages/Cybersecurity.py")
+                elif role == "it":
+                    st.switch_page("pages/IT_Operations.py")
+                elif role == "data":
+                    st.switch_page("pages/Data_Science.py")
+                else:
+                    st.switch_page("pages/AI_Assistant.py")
             else:
                 st.error(msg)
 

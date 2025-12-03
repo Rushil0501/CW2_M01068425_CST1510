@@ -41,7 +41,7 @@ The project now features a fully functional web frontend:
 
 - **Multi-Page App Structure:**
   - **`Home.py`**: Secure Login and Registration tabs.
-  - **`pages/Dashboard.py`**: Main intelligence dashboard protected by session state.
+  - **`pages`**: Main intelligence dashboards protected by session state.
 - **Visualisations:** Interactive bar charts and pie charts using **Plotly** to analyse incident types and severity.
 - **Session Management:** Secure state handling to keep users logged in across pages.
 - **Live Reporting:** Users can submit new incidents via a form, which updates the database in real-time.
