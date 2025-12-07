@@ -1,9 +1,9 @@
 from app.data.db import connect_database, DB_PATH
 from app.data.schema import create_all_tables
-from app.services.user_service import register_user, login_user, migrate_users_from_file
-from app.data.incidents import insert_incident, get_all_incidents
+from app.services.user_service import register_user, migrate_users_from_file
 from app.data.datasets import load_csv_to_table
 from pathlib import Path
+
 
 DATA_DIR = Path("DATA")
 
@@ -19,6 +19,7 @@ def setup_database_complete():
 
     print("[2/5] Creating tables...")
     create_all_tables(conn)
+    print("    -> All tables created (including AI chat history)")
 
     print("[3/5] Migrating users from users.txt...")
     migrated = migrate_users_from_file()
@@ -36,7 +37,6 @@ def setup_database_complete():
         p = Path(path)
         if p.exists():
             try:
-                # Verify if data already exists to avoid duplicates in setup
                 cur = conn.cursor()
                 cur.execute(f"SELECT COUNT(*) FROM {table}")
                 count = cur.fetchone()[0]
@@ -53,7 +53,6 @@ def setup_database_complete():
             print(f"    -> {name} not found. Skipping.")
 
     print("[5/5] Creating Demo Admin User...")
-    # Ensure we have at least one known user to login with
     success, msg = register_user("admin", "Admin123!", "admin")
     print(f"    -> {msg}")
 

@@ -1,61 +1,127 @@
+# pages/AI_Assistant.py
 import streamlit as st
-from app.services.ai_service import get_gemini_response
-from DATA.ai_history import load_history, save_message
+from app.ui.styles import load_custom_css
+import os
+from app.data.db import connect_database
+from DATA.ai_history import load_history as load_ai_history, save_message as save_ai_message, delete_history as delete_ai_history
+
+try:
+    from app.services.ai_service import get_gemini_response
+except Exception:
+    get_gemini_response = None
+
+load_custom_css()
+
+# Auth
+qp = st.query_params
+if "user" not in qp or not qp.get("user"):
+    st.query_params.clear()
+    st.switch_page("Home.py")
+    st.stop()
+
+username = qp.get("user")[0]
+role = qp.get("role", [""])[0]
+
+# set last_page
+st.session_state.last_page = "pages/AI_Assistant.py"
+
+# Header: avatar (left), username & role (middle), Profile/Logout (right)
+
+col_a, col_b, col_c = st.columns([1, 6, 2])
+
+with col_a:
+
+    from app.services.user_service import get_user_by_username
+    user_data = get_user_by_username(username)
+    avatar = user_data.get("avatar") if user_data else None
+
+    if avatar:
+        st.markdown(
+            f"""
+            <div style="width:70px; height:70px; border-radius:50%; overflow:hidden;
+                        border:3px solid #FF1493; box-shadow:0 0 10px rgba(255,20,147,0.6);">
+                <img src="{avatar}" style="width:100%; height:100%; object-fit:cover;">
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+    else:
+        initials = "".join([p[0].upper() for p in username.split()][:2]) or "U"
+        st.markdown(
+            f"""
+            <div style="width:70px; height:70px; border-radius:50%;
+                        display:flex; align-items:center; justify-content:center;
+                        background:#111; border:3px solid #FF1493;
+                        color:white; font-weight:700; font-size:26px;
+                        box-shadow:0 0 10px rgba(255,20,147,0.6);">
+                {initials}
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+
+with col_b:
+    st.markdown(
+        f"<div style='font-size:20px; font-weight:700; color:white'>{username}</div>",
+        unsafe_allow_html=True
+    )
+    st.markdown(
+        f"<div style='color:#FF1493; font-size:12px; text-transform:uppercase'>{role}</div>",
+        unsafe_allow_html=True
+    )
+
+with col_c:
+    b1, b2 = st.columns([1, 1])
+    with b1:
+        if st.button("Profile"):
+            st.switch_page("pages/profile.py")
+    with b2:
+        if st.button("Logout"):
+            st.query_params.clear()
+            st.switch_page("Home.py")
+
+st.markdown("---")
 
 
-def render_ai_console(role):
-    username = st.session_state.username
+st.subheader("🧠 Enterprise AI Assistant (general)")
+history = load_ai_history(username, role or "general") or []
+if history:
+    for msg in history:
+        who = "You" if msg["role"] == "user" else "AI"
+        cls = "ai-chat-bubble-user" if msg["role"] == "user" else "ai-chat-bubble-assistant"
+        st.markdown(
+            f"<div class='{cls}'><strong>{who}:</strong> {msg['content']}</div>", unsafe_allow_html=True)
+        st.caption(msg["timestamp"])
+else:
+    st.info("No chat history yet.")
 
-    st.markdown("---")
-
-    ai_names = {
-        "cyber": "🕵️‍♂️ Cybersecurity AI",
-        "it": "🛠️ IT Support AI",
-        "data": "🧠 Data Lab AI",
-        "admin": "⚡ Admin AI"
-    }
-
-    st.subheader(ai_names.get(role, "⚡ AI Assistant"))
-
-    # 1. Load persistent history
-    if "messages" not in st.session_state:
-        st.session_state.messages = [
-            {"role": msg_role, "content": content}
-            for msg_role, content in load_history(username, role)
-        ]
-
-    # 2. Display history
-    chat_box = st.container()
-    with chat_box:
-        for m in st.session_state.messages:
-            with st.chat_message(m["role"]):
-                st.write(m["content"])
-
-    # 3. Input box
-    with st.form("ai_chat_form", clear_on_submit=True):
-        prompt = st.text_input("Ask something...", "")
-        send = st.form_submit_button("Send")
-
-        if send and prompt:
-            # Save user message
-            st.session_state.messages.append(
-                {"role": "user", "content": prompt})
-            save_message(username, role, "user", prompt)
-
-            with st.chat_message("assistant"):
-                placeholder = st.empty()
-                final = ""
-
+q = st.text_input("Ask the AI assistant...", key="ai_query")
+if st.button("Send AI", key="ai_send"):
+    if q:
+        save_ai_message(username, role or "general", "user", q)
+        chat_history = [{"role": r["role"], "content": r["content"]}
+                        for r in history]
+        if get_gemini_response:
+            placeholder = st.empty()
+            full = ""
+            try:
                 stream = get_gemini_response(
-                    prompt, st.session_state.messages, role)
+                    q, chat_history, role or "general")
                 for chunk in stream:
                     if hasattr(chunk, "text"):
-                        final += chunk.text
-                        placeholder.write(final + "▌")
-
-                placeholder.write(final)
-
-            # Save assistant message
-            st.session_state.messages.append(
-                {"role": "assistant", "content": final})
-            save_message(username, role, "assistant", final)
+                        full += chunk.text
+                        placeholder.markdown(
+                            f"<div class='ai-response'>{full}▌</div>", unsafe_allow_html=True)
+                placeholder.markdown(
+                    f"<div class='ai-response'>{full}</div>", unsafe_allow_html=True)
+                save_ai_message(username, role or "general", "assistant", full)
+            except Exception as e:
+                st.error(f"AI error: {e}")
+        else:
+            fallback = f"[Local] Received: {q}"
+            st.markdown(
+                f"<div class='ai-response'>{fallback}</div>", unsafe_allow_html=True)
+            save_ai_message(username, role or "general", "assistant", fallback)
+        # refresh page
+        st.experimental_rerun() if hasattr(st, "experimental_rerun") else st.markdown(
+            "<script>window.location.reload();</script>", unsafe_allow_html=True)

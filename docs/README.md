@@ -1,18 +1,23 @@
 # Multi-Domain Intelligence Platform (CST1510)
 
+Name: Kavirajduthsingh Ramdawor
+Student ID: M01068425
+
 A modular, secure web application designed for managing cyber incidents, IT tickets, and dataset metadata. Built for CST1510 coursework using **Python, Streamlit, SQLite, and a clean service-layer architecture**.
 
-## 🛠️ Tech Stack
+## Tech Stack
 
 - **Frontend:** Streamlit, Plotly (Interactive Dashboards)
-- **Backend:** Python 3.x
+- **Backend:** Python 3.13.x
 - **Database:** SQLite3
 - **Security:** Bcrypt (Password Hashing & Salting)
 - **Data Processing:** Pandas
+- **API Integration:** Gemini API
+- **Programming Paradigm:** Object-Oriented Programming (OOP)
 
 ---
 
-## 📅 Weekly Progress & Features
+## Weekly Progress & Features
 
 ### **Week 7: Secure Authentication System**
 
@@ -41,21 +46,42 @@ The project now features a fully functional web frontend:
 
 - **Multi-Page App Structure:**
   - **`Home.py`**: Secure Login and Registration tabs.
-  - **`pages`**: Main intelligence dashboards protected by session state.
+  - **`pages`**: Main intelligence dashboards folder (Cybersecuity.py, Data_Science.py, IT_Operations.py) protected by session state.
+  - It also contains Login.py, AI_Assitant.py, and profile.py.
 - **Visualisations:** Interactive bar charts and pie charts using **Plotly** to analyse incident types and severity.
 - **Session Management:** Secure state handling to keep users logged in across pages.
 - **Live Reporting:** Users can submit new incidents via a form, which updates the database in real-time.
 
+### **Week 10: Gemini API Integration**
+
+Enhanced the platform with external intelligence capabilities:
+
+- **Gemini API:** Integrated Gemini API to fetch real-time cyber threat intelligence.
+- **Automated Alerts:** Users can receive updates on emerging threats directly in the dashboard.
+- **API Service Layer:** Encapsulated API calls in a dedicated service module for cleaner code and easier testing.
+- **Data Processing:** Parsed and stored Gemini API responses into the database for historical tracking and analysis.
+
+### **Week 11: Object-Oriented Programming Implementation**
+
+Refactored the codebase to leverage OOP principles:
+
+- **Class-Based Services:** Converted user authentication, ticket management, and incident handling into classes.
+- **Encapsulation:** Improved code maintainability by restricting direct access to sensitive attributes.
+- **Inheritance & Reusability:** Created base classes for shared functionalities across different domain modules.
+- **Modular Design:** Enhanced readability and made the platform easier to extend for future features.
+
 ---
 
-## 📂 Project Structure (Week 9)
+## Project Structure
 
 This project is organised to keep everything clean, logical, and easy to maintain.
 
-At the top level, you’ve got the main Streamlit files: Home.py, which handles the login page, and main.py, which you run once to set up the database.
-
-The pages folder holds extra Streamlit screens like the Dashboard, while the DATA folder stores all the actual information the system uses – including the SQLite database, old user records, and any CSV files.
-
-The real engine of the application lives inside the app directory: the data subfolder manages database connections and SQL queries, while the services subfolder contains the business logic, such as user authentication and password handling.
+- **Top-Level Files:** `Home.py` (login & registration), `main.py` (database setup)
+- **`pages/` Folder:** Additional Streamlit pages like the Dashboards
+- **`DATA/` Folder:** Stores SQLite database, legacy user files, CSV datasets, and AI chat history per users in each dashboards.
+- **`app/` Folder:**
+  - **`data/`**: Database connections & queries
+  - **`services/`**: Business logic (authentication, ticket/incident handling, Gemini API service)
+  - **OOP Refactor:** Services and modules are now class-based for better structure
 
 Altogether, the structure makes the system easy to understand, extend, and debug, with every part of the project having a clear purpose.

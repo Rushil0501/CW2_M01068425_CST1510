@@ -1,131 +1,210 @@
 import google.generativeai as genai
 import streamlit as st
 import pandas as pd
+import sqlite3
+from datetime import datetime
+from app.data.db import DB_PATH
 from streamlit.runtime.secrets import StreamlitSecretNotFoundError
 
-# --- IMPORT DATA FUNCTIONS ---
-# We need these to fetch the live data from your DB
+# --- IMPORT LIVE DATA FUNCTIONS ---
 from app.data.incidents import get_all_incidents
 from app.data.tickets import get_all_tickets
 from app.data.datasets import list_datasets
 
-# Helper class to mimic Gemini response chunk
+
+# ==========================================================
+#                 DATABASE CHAT HISTORY
+# ==========================================================
+
+def save_chat_message(username, role, sender, content):
+    conn = sqlite3.connect(DB_PATH)
+    cur = conn.cursor()
+
+    cur.execute("""
+        INSERT INTO ai_chat_history (username, role, message_role, content, timestamp)
+        VALUES (?, ?, ?, ?, ?)
+    """, (username, role, sender, content, datetime.utcnow().isoformat()))
+
+    conn.commit()
+    conn.close()
 
 
-class MockChunk:
-    def __init__(self, text):
-        self.text = text
+def load_chat_history(username, role):
+    conn = sqlite3.connect(DB_PATH)
+    cur = conn.cursor()
 
+    cur.execute("""
+        SELECT message_role, content, timestamp
+        FROM ai_chat_history
+        WHERE username = ? AND role = ?
+        ORDER BY id ASC
+    """, (username, role))
+
+    rows = cur.fetchall()
+    conn.close()
+
+    return [{"role": r[0], "content": r[1], "timestamp": r[2]} for r in rows]
+
+
+def clear_chat_history(username, role):
+    conn = sqlite3.connect(DB_PATH)
+    cur = conn.cursor()
+
+    cur.execute("""
+        DELETE FROM ai_chat_history
+        WHERE username = ? AND role = ?
+    """, (username, role))
+
+    conn.commit()
+    conn.close()
+
+
+# ==========================================================
+#                 ROLE PERSONALITIES
+# ==========================================================
 
 def get_system_prompt(role):
-    """Returns the base personality."""
-    prompts = {
-        "cyber": """You are a Tier-3 Cyber Security Analyst. 
-                   Focus on: Threat hunting, CVE analysis, incident response, and NIST frameworks. 
-                   Be concise, technical, and paranoid.""",
+    personalities = {
+        "cyber": """You are a Tier-3 Cyber Security Analyst.
+Focus on: Threat hunting, CVE analysis, incident response, MITRE ATT&CK, log analysis.
+Be concise, technical, and evidence-based.""",
 
-        "it":    """You are a Senior IT Service Manager (ITIL Certified).
-                   Focus on: Hardware troubleshooting, network protocols, ticket prioritization, and SLAs.
-                   Be helpful, patient, and ask clarifying questions.""",
+        "it": """You are a Senior IT Support Manager (ITIL Certified).
+Focus on: Hardware diagnostics, troubleshooting, network issues, SLAs.
+Be clear, helpful, and professional.""",
 
-        "data":  """You are a Lead Data Scientist.
-                   Focus on: Python (Pandas/NumPy), statistical analysis, data cleaning, and ML models.
-                   Always provide code snippets when asked about data transformation."""
+        "data": """You are a Lead Data Scientist.
+Focus on: Pandas, NumPy, cleaning, statistics, ML concepts.
+Provide code snippets when helpful."""
     }
-    return prompts.get(role, "You are a helpful enterprise assistant.")
+    return personalities.get(role, "You are a helpful enterprise assistant.")
 
+
+# ==========================================================
+#                 DATA CONTEXT (LIVE DATABASE)
+# ==========================================================
 
 def get_data_context(role):
-    """
-    Fetches the actual data from the database based on the role
-    and converts it to a CSV-string so the AI can 'read' it.
-    """
-    context_str = ""
-
     try:
-        if role == 'cyber':
+        if role == "cyber":
             df = get_all_incidents()
-            if not df.empty:
-                # Convert to CSV string (limit to top 50 rows to save tokens)
-                data_str = df.head(50).to_csv(index=False)
-                context_str = f"\n\n[LIVE DATABASE CONTEXT - INCIDENTS TABLE]\n{data_str}\n"
-            else:
-                context_str = "\n\n[LIVE DATABASE CONTEXT]\nNo incidents found in database.\n"
-
-        elif role == 'it':
+        elif role == "it":
             df = get_all_tickets()
-            if not df.empty:
-                data_str = df.head(50).to_csv(index=False)
-                context_str = f"\n\n[LIVE DATABASE CONTEXT - IT TICKETS TABLE]\n{data_str}\n"
-            else:
-                context_str = "\n\n[LIVE DATABASE CONTEXT]\nNo tickets found.\n"
-
-        elif role == 'data':
+        elif role == "data":
             df = list_datasets()
-            if not df.empty:
-                data_str = df.head(50).to_csv(index=False)
-                context_str = f"\n\n[LIVE DATABASE CONTEXT - AVAILABLE DATASETS]\n{data_str}\n"
-            else:
-                context_str = "\n\n[LIVE DATABASE CONTEXT]\nNo datasets uploaded yet.\n"
+        else:
+            return ""
+
+        if df.empty:
+            return "\n[DATABASE CONTEXT: No data found]\n"
+
+        return f"\n[DATABASE CONTEXT - TOP 50 ROWS]\n{df.head(50).to_csv(index=False)}\n"
 
     except Exception as e:
-        context_str = f"\n\n[SYSTEM ERROR FETCHING DATA]: {str(e)}\n"
+        return f"\n[ERROR FETCHING DATA]: {e}\n"
 
-    return context_str
 
+# ==========================================================
+#                 GEMINI RESPONSE HANDLER
+# ==========================================================
 
 def get_gemini_response(user_prompt, chat_history, role):
-    """
-    Sends message + Data Context to Gemini.
-    """
-    # 1. Check Key
-    api_key = None
+    # 1. API key check
     try:
-        if "GOOGLE_API_KEY" in st.secrets:
-            api_key = st.secrets["GOOGLE_API_KEY"]
-        else:
-            return iter([MockChunk("⚠️ Error: GOOGLE_API_KEY is missing in secrets.toml")])
-    except (StreamlitSecretNotFoundError, FileNotFoundError):
-        return iter([MockChunk("⚠️ Error: The .streamlit/secrets.toml file is missing.")])
-
-    # 2. Configure
-    try:
+        api_key = st.secrets["GOOGLE_API_KEY"]
         genai.configure(api_key=api_key)
-    except Exception as e:
-        return iter([MockChunk(f"⚠️ Configuration Error: {str(e)}")])
+    except Exception:
+        return "⚠️ Error: Missing or invalid GOOGLE_API_KEY in secrets.toml"
 
-    # 3. Generate Response
     try:
-        model = genai.GenerativeModel('gemini-2.5-flash')
+        model = genai.GenerativeModel("gemini-2.5-flash")
 
-        # --- BUILD HISTORY WITH DATA CONTEXT ---
+        # Build history
         gemini_history = []
 
-        # A. Get the Personality
-        base_prompt = get_system_prompt(role)
+        # System + Data Context
+        system_instruction = (
+            get_system_prompt(role)
+            + "\n\n"
+            + get_data_context(role)
+            + "\n\nUse only the facts from the above data."
+        )
 
-        # B. Get the Live Data (The "Link" to CSVs)
-        data_context = get_data_context(role)
-
-        # C. Combine them into the System Instruction
-        full_system_instruction = f"{base_prompt}\n{data_context}\n\nINSTRUCTION: Use the provided Database Context above to answer user questions factually. If the data is empty, say so."
-
+        gemini_history.append({"role": "user", "parts": [system_instruction]})
         gemini_history.append(
-            {'role': 'user', 'parts': [full_system_instruction]})
-        gemini_history.append({'role': 'model', 'parts': [
-                              "Understood. I have access to the live database context and will use it to answer."]})
+            {"role": "model", "parts": ["Understood. Using live database context."]})
 
-        # D. Add Conversation History
+        # Add past chat
         for msg in chat_history:
-            role_map = {'user': 'user', 'assistant': 'model'}
+            role_map = {"user": "user", "assistant": "model"}
             gemini_history.append({
-                'role': role_map.get(msg['role'], 'user'),
-                'parts': [msg['content']]
+                "role": role_map.get(msg["role"], "user"),
+                "parts": [msg["content"]]
             })
 
         chat = model.start_chat(history=gemini_history)
-        response = chat.send_message(user_prompt, stream=True)
-        return response
+        stream = chat.send_message(user_prompt, stream=True)
+
+        full_response = ""
+        for chunk in stream:
+            if hasattr(chunk, "text"):
+                full_response += chunk.text
+
+        return full_response
 
     except Exception as e:
-        return iter([MockChunk(f"⚠️ AI Connection Error: {str(e)}")])
+        return f"⚠️ AI Error: {str(e)}"
+
+
+# ==========================================================
+#                 PUBLIC FUNCTIONS FOR DASHBOARDS
+# ==========================================================
+
+def cyber_ai_chat(username, message):
+    role = "cyber"
+    history = load_chat_history(username, role)
+    save_chat_message(username, role, "user", message)
+
+    response = get_gemini_response(message, history, role)
+    save_chat_message(username, role, "assistant", response)
+
+    return response
+
+
+def data_ai_chat(username, message):
+    role = "data"
+    history = load_chat_history(username, role)
+    save_chat_message(username, role, "user", message)
+
+    response = get_gemini_response(message, history, role)
+    save_chat_message(username, role, "assistant", response)
+
+    return response
+
+
+def it_ai_chat(username, message):
+    role = "it"
+    history = load_chat_history(username, role)
+    save_chat_message(username, role, "user", message)
+
+    response = get_gemini_response(message, history, role)
+    save_chat_message(username, role, "assistant", response)
+
+    return response
+
+# =========================================================
+# OOP AI SERVICE
+# =========================================================
+
+
+class AIService:
+    """
+    Handles AI responses with role-based intelligence.
+    """
+
+    def ask(self, username, message, role):
+        history = load_chat_history(username, role)
+        save_chat_message(username, role, "user", message)
+        response = get_gemini_response(message, history, role)
+        save_chat_message(username, role, "assistant", response)
+        return response

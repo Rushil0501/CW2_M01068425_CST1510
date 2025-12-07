@@ -1,188 +1,213 @@
-"""
-User-level business logic: register, login, migrate, and validation.
-"""
-from app.data.users import get_user_by_username, insert_user
-from app.data.db import connect_database
 import bcrypt
-import re
-import time
-import secrets
+import os
 from pathlib import Path
+from app.data.db import connect_database
 
-# --- Configuration & Globals ---
-DATA_DIR = Path("DATA")
-USERS_TXT = DATA_DIR / "users.txt"
-
-FAILED_LOGIN_LIMIT = 3
-LOCKOUT_DURATION = 300  # 5 minutes
-failed_login_attempts = {}  # {username: (count, timestamp)}
-
-# --- Helper Functions ---
+USERS_TXT_PATH = Path("DATA/users.txt")
 
 
-def validate_username(username):
-    if not (3 <= len(username) <= 20):
-        return False, "Username must be between 3 and 20 characters."
-
-    # Allow letters, numbers, spaces, and underscores
-    if not re.match(r"^[a-zA-Z0-9_ ]+$", username):
-        return False, "Username allows only letters, numbers, spaces, and underscores."
-    return True, ""
+# ------------------------------------------------------------
+# HELPERS
+# ------------------------------------------------------------
+def hash_password(password: str) -> str:
+    """Hash password using bcrypt."""
+    return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
 
 
-def validate_password(password):
-    if not (6 <= len(password) <= 50):
-        return False, "Password must be between 6 and 50 characters."
-    if not re.search(r"[a-z]", password):
-        return False, "Password must contain at least one lowercase letter."
-    if not re.search(r"[A-Z]", password):
-        return False, "Password must contain at least one uppercase letter."
-    if not re.search(r"\d", password):
-        return False, "Password must contain at least one digit."
-    return True, ""
+def verify_password(password: str, hashed: str) -> bool:
+    """Verify password against bcrypt hash."""
+    try:
+        return bcrypt.checkpw(password.encode(), hashed.encode())
+    except Exception:
+        return False
 
 
-def check_password_strength(password):
-    score = 0
-    if len(password) >= 8:
-        score += 1
-    if len(password) >= 12:
-        score += 1
-    if re.search(r"[a-z]", password) and re.search(r"[A-Z]", password):
-        score += 1
-    if re.search(r"\d", password):
-        score += 1
-    if re.search(r"[!@#$%^&*(),.?:{}|<>]", password):
-        score += 1
+# ------------------------------------------------------------
+# REGISTER USER
+# ------------------------------------------------------------
+def register_user(username: str, password: str, role: str = "user"):
+    """Register a new user with bcrypt hashing."""
+    try:
+        conn = connect_database()
+        cur = conn.cursor()
 
-    if score <= 2:
-        return "Weak"
-    elif score <= 4:
-        return "Medium"
-    return "Strong"
+        # Check existing
+        cur.execute("SELECT id FROM users WHERE username = ?", (username,))
+        if cur.fetchone():
+            return False, "Username already exists."
 
+        pw_hash = hash_password(password)
 
-def create_session(username):
-    """Generate a session token."""
-    return secrets.token_hex(16)
+        cur.execute(
+            "INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)",
+            (username, pw_hash, role),
+        )
 
+        conn.commit()
+        conn.close()
+        return True, "User registered."
 
-def _record_failed_login(username):
-    current_time = time.time()
-    if username not in failed_login_attempts:
-        failed_login_attempts[username] = (1, current_time)
-    else:
-        count, _ = failed_login_attempts[username]
-        failed_login_attempts[username] = (count + 1, current_time)
-
-# --- Main Service Functions ---
+    except Exception as e:
+        return False, f"Registration error: {e}"
 
 
-def register_user(username, password, role='user'):
-    """Register user: Validate -> Hash -> Save to DB -> Save to TXT."""
+# ------------------------------------------------------------
+# LOGIN USER
+# ------------------------------------------------------------
+def login_user(username: str, password: str):
+    """Authenticate user using bcrypt."""
+    try:
+        conn = connect_database()
+        cur = conn.cursor()
 
-    # 1. Validate Inputs
-    valid_user, msg = validate_username(username)
-    if not valid_user:
-        return False, msg
+        cur.execute(
+            "SELECT password_hash, role FROM users WHERE username = ?",
+            (username,),
+        )
+        row = cur.fetchone()
+        conn.close()
 
-    valid_pass, msg = validate_password(password)
-    if not valid_pass:
-        return False, msg
+        if not row:
+            return False, "User not found.", None, None
 
-    # 2. Check Database (Prevent Duplicates)
-    if get_user_by_username(username):
-        return False, f"Username '{username}' already exists."
+        stored_hash, role = row[0], row[1]
 
-    # 3. Hash Password
-    pw_bytes = password.encode('utf-8')
-    salt = bcrypt.gensalt()
-    hashed = bcrypt.hashpw(pw_bytes, salt).decode('utf-8')
+        # Compare bcrypt hash
+        if not verify_password(password, stored_hash):
+            return False, "Incorrect password.", None, None
 
-    # 4. Insert into Database (Primary Storage)
-    new_id = insert_user(username, hashed, role)
+        token = f"TOKEN::{username}"
+        return True, "Login successful.", token, role
 
-    if new_id:
-        # --- 5. NEW: Save to users.txt (Backup Storage) ---
-        try:
-            # Ensure directory exists
-            DATA_DIR.mkdir(parents=True, exist_ok=True)
-
-            with open(USERS_TXT, "a", encoding="utf-8") as f:
-                # Format: username,password_hash,role
-                f.write(f"{username},{hashed},{role}\n")
-
-        except Exception as e:
-            print(f"Warning: Could not save to users.txt: {e}")
-
-        strength = check_password_strength(password)
-        return True, f"User registered as {role}! (Strength: {strength})"
-
-    return False, "Registration failed (Database Error)."
+    except Exception as e:
+        return False, f"Login error: {e}", None, None
 
 
-def login_user(username, password):
-    """Authenticate user and return Role + Token."""
+# ------------------------------------------------------------
+# MIGRATE USERS FROM users.txt
+# ------------------------------------------------------------
+def migrate_users_from_file():
+    """
+    users.txt contains:
+    username, bcrypt_hash, role
 
-    # 1. Check Lockout
-    if username in failed_login_attempts:
-        count, last_attempt = failed_login_attempts[username]
-        if count >= FAILED_LOGIN_LIMIT:
-            time_since = time.time() - last_attempt
-            if time_since < LOCKOUT_DURATION:
-                remaining = int(LOCKOUT_DURATION - time_since)
-                return False, f"Locked out. Wait {remaining}s.", None, None
-            else:
-                del failed_login_attempts[username]
-
-    # 2. Fetch from DB
-    row = get_user_by_username(username)
-    if not row:
-        _record_failed_login(username)
-        return False, "User not found.", None, None
-
-    # 3. Verify Password
-    stored_hash = row["password_hash"]
-    if bcrypt.checkpw(password.encode('utf-8'), stored_hash.encode('utf-8')):
-        if username in failed_login_attempts:
-            del failed_login_attempts[username]
-
-        token = create_session(username)
-        role = row["role"]
-
-        return True, "Login Successful", token, role
-
-    # 4. Handle Failure
-    _record_failed_login(username)
-    return False, "Incorrect password.", None, None
-
-
-def migrate_users_from_file(filepath: Path = USERS_TXT):
-    """Migrate users from users.txt to DB (Useful for initial setup)."""
-    if not filepath.exists():
+    If the second field starts with `$2b$` → already bcrypt → store directly.
+    If not → treat as plain password → hash it into bcrypt.
+    """
+    if not USERS_TXT_PATH.exists():
         return 0
-    conn = connect_database()
-    cur = conn.cursor()
-    migrated = 0
-    with open(filepath, 'r', encoding='utf-8') as f:
-        for line in f:
-            line = line.strip()
-            if not line:
+
+    count = 0
+
+    with open(USERS_TXT_PATH, "r") as fh:
+        for line in fh:
+            parts = line.strip().split(",")
+            if len(parts) < 3:
                 continue
-            parts = line.split(',')
-            if len(parts) >= 2:
-                username = parts[0].strip()
-                password_hash = parts[1].strip()
-                role = parts[2].strip() if len(parts) >= 3 else 'user'
-                try:
+
+            username, password_or_hash, role = parts[0], parts[1], parts[2]
+
+            # Check if bcrypt hash already
+            if password_or_hash.startswith("$2b$"):
+                pw_hash = password_or_hash  # use directly
+            else:
+                pw_hash = hash_password(password_or_hash)
+
+            try:
+                conn = connect_database()
+                cur = conn.cursor()
+
+                cur.execute(
+                    "SELECT id FROM users WHERE username = ?", (username,))
+                exists = cur.fetchone()
+
+                if not exists:
                     cur.execute(
-                        "INSERT OR IGNORE INTO users (username, password_hash, role) VALUES (?, ?, ?)",
-                        (username, password_hash, role)
+                        "INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)",
+                        (username, pw_hash, role),
                     )
-                    if cur.rowcount > 0:
-                        migrated += 1
-                except Exception:
-                    continue
-    conn.commit()
-    conn.close()
-    return migrated
+                    conn.commit()
+                    count += 1
+
+                conn.close()
+            except Exception as e:
+                print("Migration error:", e)
+
+    return count
+
+
+# ------------------------------------------------------------
+# PROFILE HELPERS
+# ------------------------------------------------------------
+def get_user_by_username(username: str):
+    try:
+        conn = connect_database()
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT username, role, avatar, created_at FROM users WHERE username = ?",
+            (username,),
+        )
+        row = cur.fetchone()
+        conn.close()
+
+        if not row:
+            return None
+
+        return {
+            "username": row[0],
+            "role": row[1],
+            "avatar": row[2],
+            "created_at": row[3],
+        }
+
+    except Exception as e:
+        print("get_user_by_username error:", e)
+        return None
+
+
+def update_user_profile_image(username: str, image_path: str):
+    """
+    Save avatar path using a fully absolute, normalized path.
+    Streamlit needs correct absolute paths for <img src="..."> tags.
+    """
+    try:
+        # Convert to full absolute path
+        abs_path = os.path.abspath(image_path)
+        abs_path = abs_path.replace("\\", "/")  # Normalize for HTML
+
+        conn = connect_database()
+        cur = conn.cursor()
+        cur.execute("UPDATE users SET avatar = ? WHERE username = ?",
+                    (abs_path, username))
+        conn.commit()
+        conn.close()
+        return True
+    except Exception as e:
+        print("update_user_profile_image error:", e)
+        return False
+
+# ============================================================
+# OOP SERVICE LAYER (WRAPS EXISTING FUNCTIONS)
+# ============================================================
+
+
+class UserService:
+    """
+    Object-Oriented wrapper for user-related operations.
+    Existing procedural functions are reused internally.
+    """
+
+    def register(self, username: str, password: str, role: str = "user"):
+        return register_user(username, password, role)
+
+    def login(self, username: str, password: str):
+        return login_user(username, password)
+
+    def get_user(self, username: str):
+        return get_user_by_username(username)
+
+    def update_avatar(self, username: str, image_path: str) -> bool:
+        return update_user_profile_image(username, image_path)
+
+    def migrate_users(self):
+        return migrate_users_from_file()
