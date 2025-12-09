@@ -117,5 +117,5 @@ class ProfilePage:
             st.error(str(e))
 
 
-# 🚀 ENTRY POINT
+# Entry point
 ProfilePage().render()

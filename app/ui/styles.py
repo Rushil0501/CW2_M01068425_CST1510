@@ -2,20 +2,85 @@ import streamlit as st
 
 
 def load_custom_css():
-    """Load global neon UI styling across all pages."""
+    """Load neon UI styling and layout overrides."""
 
     st.markdown(
         """
         <style>
+        @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&display=swap');
 
-        /* GLOBAL APP BACKGROUND */
+        @keyframes ultra-smooth-fade {
+            0% {
+                background-position: 0% 0%; 
+                opacity: 0.90; 
+            }
+            50% {
+                background-position: 100% 100%; 
+                opacity: 1;
+            }
+            100% {
+                background-position: 0% 0%;
+                opacity: 0.90;
+            }
+        }
+
         .stApp {
             background-color: #000000 !important;
             background-image: radial-gradient(circle at 50% 120%, rgba(255,20,147,0.45), #000000 60%);
+            background-size: 500% 500%; 
+            animation: ultra-smooth-fade 10s ease-in-out infinite alternate;
             background-attachment: fixed;
+            will-change: background-position, opacity; 
         }
 
-        /* TOP RIGHT PROFILE BAR */
+        .neon-title-container {
+            font-family: 'Playfair Display', Georgia, serif; 
+            color: #FF1493; 
+            
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            
+            text-shadow: 
+                0 0 4px #FF1493,
+                0 0 6px #FF1493,
+                0 0 10px rgba(255,20,147,0.6),
+                0 0 20px rgba(255,20,147,0.4);
+            
+            font-size: 40px; 
+            font-weight: 700; 
+            margin-bottom: 30px;
+            text-transform: none; 
+        }
+
+        div[data-testid="stText"] > div {
+            display: flex !important;
+            justify-content: center !important;
+            width: 100%;
+        }
+        
+        .neon-logo {
+            font-size: 1.2em; 
+            font-weight: 900;
+            
+            text-shadow: 
+                0 0 5px #FFFFFF, 	
+                0 0 10px #FF1493, 	
+                0 0 25px #FF1493, 	
+                0 0 60px rgba(255,20,147,0.9);
+            
+            color: #FFFFFF;
+            margin-right: 15px;
+            margin-left: -5px;
+            
+            animation: logo-pulse 3s infinite alternate ease-in-out;
+        }
+
+        @keyframes logo-pulse {
+            0% { opacity: 0.9; }
+            100% { opacity: 1.0; }
+        }
+
         .profile-container {
             position: absolute;
             top: 15px;
@@ -54,7 +119,6 @@ def load_custom_css():
             border: 1px solid rgba(255,20,147,0.4);
         }
 
-        /* CARDS / BOXES */
         .stCard, div[data-testid="stForm"], div[data-testid="stTabs"] {
             background: rgba(255, 255, 255, 0.06) !important;
             border: 1px solid rgba(255,20,147,0.25) !important;
@@ -64,7 +128,6 @@ def load_custom_css():
             backdrop-filter: blur(10px);
         }
 
-        /* BUTTONS */
         div.stButton > button {
             background: linear-gradient(90deg, #FF1493, #C71585);
             color: white !important;
@@ -80,7 +143,6 @@ def load_custom_css():
             box-shadow: 0 0 18px rgba(255,20,147,0.95);
         }
 
-        /* TEXT INPUT */
         .stTextInput input {
             background: rgba(255,255,255,0.1) !important;
             color: white !important;
@@ -88,15 +150,33 @@ def load_custom_css():
             border: 1px solid rgba(255,255,255,0.25) !important;
         }
 
-        /* TABLES (TRANSLUCENT CSV DATA) */
-        .dataframe {
-            background: rgba(255,255,255,0.03) !important;
-            border-radius: 10px !important;
-            border: 1px solid rgba(255,255,255,0.15);
-            backdrop-filter: blur(6px);
+        div[data-testid="stDataFrame"] {
+            background: rgba(255, 255, 255, 0.06) !important;
+            border: 1px solid rgba(255,20,147,0.25) !important;
+            box-shadow: 0 0 20px rgba(255,20,147,0.25) !important;
+            border-radius: 14px !important;
+            padding: 0px !important;
+            backdrop-filter: blur(10px);
+            overflow: hidden; 
+        }
+        
+        div[data-testid="stDataFrame"] .ag-header-cell,
+        div[data-testid="stDataFrame"] .ag-row {
+            background: transparent !important; 
+        }
+        
+        div[data-testid="stDataFrame"] .ag-cell,
+        div[data-testid="stDataFrame"] .ag-header-cell-label {
+            color: #FFFFFF !important;
+        }
+        
+        div[data-testid="stDataFrame"] .ag-root-wrapper,
+        div[data-testid="stDataFrame"] .ag-cell,
+        div[data-testid="stDataFrame"] .ag-header-cell {
+            border-color: rgba(255,255,255,0.1) !important;
         }
 
-        /* AI CHAT BOX */
+
         .ai-box {
             background: rgba(255,255,255,0.05);
             padding: 12px;
@@ -113,7 +193,27 @@ def load_custom_css():
         .ai-bot {
             color: #9be7ff;
         }
-
+        
+        .ai-chat-bubble-user {
+            background: rgba(255, 20, 147, 0.2); 
+            padding: 10px;
+            border-radius: 12px;
+            border-bottom-right-radius: 0;
+            margin-bottom: 5px;
+            color: white;
+            font-size: 14px;
+        }
+        
+        .ai-chat-bubble-assistant {
+            background: rgba(155, 231, 255, 0.15); 
+            padding: 10px;
+            border-radius: 12px;
+            border-bottom-left-radius: 0;
+            margin-bottom: 5px;
+            color: white;
+            font-size: 14px;
+        }
+        
         </style>
         """,
         unsafe_allow_html=True,

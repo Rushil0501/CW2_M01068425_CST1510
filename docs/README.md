@@ -12,7 +12,8 @@ A modular, secure web application designed for managing cyber incidents, IT tick
 - **Database:** SQLite3
 - **Security:** Bcrypt (Password Hashing & Salting)
 - **Data Processing:** Pandas
-- **API Integration:** Gemini API
+- **Images:** Pillow (profile avatars)
+- **API Integration:** Gemini API (requires `GOOGLE_API_KEY` in `.streamlit/secrets.toml`)
 - **Programming Paradigm:** Object-Oriented Programming (OOP)
 
 ---
@@ -78,10 +79,15 @@ This project is organised to keep everything clean, logical, and easy to maintai
 
 - **Top-Level Files:** `Home.py` (login & registration), `main.py` (database setup)
 - **`pages/` Folder:** Additional Streamlit pages like the Dashboards
-- **`DATA/` Folder:** Stores SQLite database, legacy user files, CSV datasets, and AI chat history per users in each dashboards.
+- **`DATA/` Folder:** Stores SQLite database, legacy user files, CSV datasets, and AI chat history per dashboard.
 - **`app/` Folder:**
   - **`data/`**: Database connections & queries
   - **`services/`**: Business logic (authentication, ticket/incident handling, Gemini API service)
   - **OOP Refactor:** Services and modules are now class-based for better structure
 
 Altogether, the structure makes the system easy to understand, extend, and debug, with every part of the project having a clear purpose.
+
+## Setup Notes
+
+- Populate `.streamlit/secrets.toml` with `GOOGLE_API_KEY` to enable Gemini responses; without it, AI calls will warn or return a fallback.
+- Initial data load and table creation: run `python main.py` to create the SQLite database, migrate legacy users, and seed CSVs if present. Then start the app with `streamlit run Home.py`.

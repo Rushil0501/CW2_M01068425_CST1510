@@ -9,7 +9,7 @@ DATA_DIR = Path("DATA")
 
 
 def setup_database_complete():
-    """Create DB, tables, migrate users and load CSVs."""
+    """Create the database, migrate users, and seed CSV data."""
     print("\n" + "="*50)
     print(" STARTING DATABASE SETUP ")
     print("="*50)

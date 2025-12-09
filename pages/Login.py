@@ -1,32 +1,47 @@
 import streamlit as st
 from app.services.user_service import login_user
 
-st.set_page_config(page_title="Login", page_icon="🔐", layout="centered")
 
-st.title("🔐 Secure Login Portal")
+class LoginPage:
+    def __init__(self):
+        st.set_page_config(page_title="Login",
+                           page_icon="🔐", layout="centered")
+        st.title("🔐 Secure Login Portal")
+        self.username = None
+        self.password = None
 
-username = st.text_input("Username")
-password = st.text_input("Password", type="password")
+    def render_form(self):
+        self.username = st.text_input("Username")
+        self.password = st.text_input("Password", type="password")
 
-if st.button("Login"):
-    success, msg, token, role = login_user(username, password)
+        if st.button("Login"):
+            self.handle_login()
 
-    if success:
-        st.session_state.logged_in = True
-        st.session_state.username = username
-        st.session_state.role = role
-        st.session_state.token = token
-        st.session_state.messages = []
+    def handle_login(self):
+        success, msg, token, role = login_user(
+            self.username, self.password)
 
-        # Redirect based on role
-        if role == "cyber":
-            st.switch_page("pages/Cybersecurity.py")
-        elif role == "it":
-            st.switch_page("pages/IT_Operations.py")
-        elif role == "data":
-            st.switch_page("pages/Data_Science.py")
+        if success:
+            st.session_state.logged_in = True
+            st.session_state.username = self.username
+            st.session_state.role = role
+            st.session_state.token = token
+            st.session_state.messages = []
+
+            if role == "cyber":
+                st.switch_page("pages/Cybersecurity.py")
+            elif role == "it":
+                st.switch_page("pages/IT_Operations.py")
+            elif role == "data":
+                st.switch_page("pages/Data_Science.py")
+            else:
+                st.switch_page("pages/AI_Assistant.py")
         else:
-            st.switch_page("pages/AI_Assistant.py")
+            st.error(msg)
 
-    else:
-        st.error(msg)
+    def run(self):
+        self.render_form()
+
+
+if __name__ == "__main__":
+    LoginPage().run()

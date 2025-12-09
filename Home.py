@@ -19,7 +19,12 @@ class HomePage:
         self.qp = st.query_params
 
     def render(self):
-        st.title("</> Multi-Domain Intelligence Platform")
+        title_html = """
+        <div class="neon-title-container">
+            <span class="neon-logo"></></span> Multi-Domain Intelligence Platform
+        </div>
+        """
+        st.markdown(title_html, unsafe_allow_html=True)
 
         self.quick_launch()
         self.render_auth_tabs()
@@ -115,5 +120,5 @@ class HomePage:
                     st.error(msg)
 
 
-# 🚀 ENTRY POINT
+# Entry point
 HomePage().render()

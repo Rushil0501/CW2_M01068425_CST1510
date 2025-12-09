@@ -6,32 +6,25 @@ from app.data.db import connect_database
 USERS_TXT_PATH = Path("DATA/users.txt")
 
 
-# ------------------------------------------------------------
-# HELPERS
-# ------------------------------------------------------------
 def hash_password(password: str) -> str:
-    """Hash password using bcrypt."""
+    """Hash a password with bcrypt."""
     return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
 
 
 def verify_password(password: str, hashed: str) -> bool:
-    """Verify password against bcrypt hash."""
+    """Verify a password against a bcrypt hash."""
     try:
         return bcrypt.checkpw(password.encode(), hashed.encode())
     except Exception:
         return False
 
 
-# ------------------------------------------------------------
-# REGISTER USER
-# ------------------------------------------------------------
 def register_user(username: str, password: str, role: str = "user"):
     """Register a new user with bcrypt hashing."""
     try:
         conn = connect_database()
         cur = conn.cursor()
 
-        # Check existing
         cur.execute("SELECT id FROM users WHERE username = ?", (username,))
         if cur.fetchone():
             return False, "Username already exists."
@@ -51,9 +44,6 @@ def register_user(username: str, password: str, role: str = "user"):
         return False, f"Registration error: {e}"
 
 
-# ------------------------------------------------------------
-# LOGIN USER
-# ------------------------------------------------------------
 def login_user(username: str, password: str):
     """Authenticate user using bcrypt."""
     try:
@@ -83,17 +73,8 @@ def login_user(username: str, password: str):
         return False, f"Login error: {e}", None, None
 
 
-# ------------------------------------------------------------
-# MIGRATE USERS FROM users.txt
-# ------------------------------------------------------------
 def migrate_users_from_file():
-    """
-    users.txt contains:
-    username, bcrypt_hash, role
-
-    If the second field starts with `$2b$` → already bcrypt → store directly.
-    If not → treat as plain password → hash it into bcrypt.
-    """
+    """Import users from DATA/users.txt, hashing any plain text passwords."""
     if not USERS_TXT_PATH.exists():
         return 0
 
@@ -107,9 +88,8 @@ def migrate_users_from_file():
 
             username, password_or_hash, role = parts[0], parts[1], parts[2]
 
-            # Check if bcrypt hash already
             if password_or_hash.startswith("$2b$"):
-                pw_hash = password_or_hash  # use directly
+                pw_hash = password_or_hash
             else:
                 pw_hash = hash_password(password_or_hash)
 
@@ -136,9 +116,6 @@ def migrate_users_from_file():
     return count
 
 
-# ------------------------------------------------------------
-# PROFILE HELPERS
-# ------------------------------------------------------------
 def get_user_by_username(username: str):
     try:
         conn = connect_database()
@@ -166,14 +143,10 @@ def get_user_by_username(username: str):
 
 
 def update_user_profile_image(username: str, image_path: str):
-    """
-    Save avatar path using a fully absolute, normalized path.
-    Streamlit needs correct absolute paths for <img src="..."> tags.
-    """
+    """Store an absolute avatar path for use in img tags."""
     try:
-        # Convert to full absolute path
         abs_path = os.path.abspath(image_path)
-        abs_path = abs_path.replace("\\", "/")  # Normalize for HTML
+        abs_path = abs_path.replace("\\", "/")
 
         conn = connect_database()
         cur = conn.cursor()
@@ -186,16 +159,8 @@ def update_user_profile_image(username: str, image_path: str):
         print("update_user_profile_image error:", e)
         return False
 
-# ============================================================
-# OOP SERVICE LAYER (WRAPS EXISTING FUNCTIONS)
-# ============================================================
-
-
 class UserService:
-    """
-    Object-Oriented wrapper for user-related operations.
-    Existing procedural functions are reused internally.
-    """
+    """Object-oriented wrapper for user operations."""
 
     def register(self, username: str, password: str, role: str = "user"):
         return register_user(username, password, role)
