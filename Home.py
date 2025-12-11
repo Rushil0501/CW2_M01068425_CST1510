@@ -1,4 +1,3 @@
-# Home.py
 import streamlit as st
 from app.services.user_service import login_user, register_user
 from app.ui.styles import load_custom_css

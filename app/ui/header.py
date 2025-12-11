@@ -51,7 +51,7 @@ def render_dashboard_header(username: str, role: str):
         b1, b2 = st.columns([1, 1])
         with b1:
             if st.button("Profile"):
-                st.switch_page("pages/Profile.py")
+                st.switch_page("pages/profile.py")
         with b2:
             if st.button("Logout"):
                 st.query_params.clear()

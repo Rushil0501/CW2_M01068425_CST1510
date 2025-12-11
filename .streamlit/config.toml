@@ -1,12 +1,5 @@
 [client]
 showSidebarNavigation = false
 
-[theme]
-primaryColor = "#FF1493"
-backgroundColor = "#000000"
-secondaryBackgroundColor = "#121212"
-textColor = "#E0E0E0"
-font = "sans serif"
-
 [server]
 headless = true

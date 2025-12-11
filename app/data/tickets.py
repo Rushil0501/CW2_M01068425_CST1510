@@ -18,6 +18,7 @@ def insert_ticket(priority, description, status, assigned_to, created_at, resolu
 
 
 def get_ticket_by_id(ticket_id):
+    """Return a single ticket by ID."""
     conn = connect_database()
     cur = conn.cursor()
     cur.execute("SELECT * FROM it_tickets WHERE ticket_id = ?", (ticket_id,))
@@ -27,6 +28,7 @@ def get_ticket_by_id(ticket_id):
 
 
 def update_ticket_status(ticket_id, new_status):
+    """Update a ticket's status."""
     conn = connect_database()
     cur = conn.cursor()
     cur.execute("UPDATE it_tickets SET status = ? WHERE ticket_id = ?",
@@ -38,6 +40,7 @@ def update_ticket_status(ticket_id, new_status):
 
 
 def delete_ticket(ticket_id):
+    """Delete a ticket by ID."""
     conn = connect_database()
     cur = conn.cursor()
     cur.execute("DELETE FROM it_tickets WHERE ticket_id = ?", (ticket_id,))

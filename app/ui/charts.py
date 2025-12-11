@@ -47,4 +47,4 @@ def render_chart(df, chart_type="bar", x=None, y=None, color=None, title=""):
         title_font=dict(size=20, color="#FF1493")
     )
 
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width='stretch')

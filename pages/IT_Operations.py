@@ -1,4 +1,3 @@
-# pages/IT_Operations.py
 import streamlit as st
 from datetime import datetime
 from pathlib import Path
@@ -129,7 +128,7 @@ class ITOperationsDashboard:
         if self.df is None or self.df.empty:
             st.info("No tickets.")
         else:
-            st.dataframe(self.df, use_container_width=True, height=360)
+            st.dataframe(self.df, width='stretch', height=360)
 
         st.markdown("---")
         st.subheader("📤 Upload Tickets CSV (Same schema)")
@@ -150,10 +149,10 @@ class ITOperationsDashboard:
                     try:
                         load_csv_to_table(
                             str(tmp), "it_tickets", if_exists="replace" if mode == "replace" else "append")
-                        st.success("Uploaded.")
+                        st.success("Uploaded successfully.")
                         self.reload_page()
                     except Exception as e:
-                        st.error(f"Failed: {e}")
+                        st.error(f"Upload failed: {e}")
 
         st.markdown("---")
         st.subheader("➕ Add Ticket (Quick Add)")
@@ -215,7 +214,8 @@ class ITOperationsDashboard:
                     st.markdown(
                         f"<div class='ai-response'>{fallback}</div>", unsafe_allow_html=True)
                     try:
-                        save_ai_message(self.username, "it", "assistant", fallback)
+                        save_ai_message(self.username, "it",
+                                        "assistant", fallback)
                     except Exception:
                         pass
                 self.reload_page()

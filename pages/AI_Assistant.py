@@ -1,4 +1,3 @@
-# pages/AI_Assistant.py
 import streamlit as st
 from app.ui.styles import load_custom_css
 from DATA.ai_history import load_history as load_ai_history, save_message as save_ai_message, delete_history as delete_ai_history

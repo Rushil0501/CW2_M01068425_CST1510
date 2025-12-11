@@ -4,7 +4,6 @@ import pandas as pd
 import sqlite3
 from datetime import datetime
 from app.data.db import DB_PATH
-from streamlit.runtime.secrets import StreamlitSecretNotFoundError
 
 from app.data.incidents import get_all_incidents
 from app.data.tickets import get_all_tickets

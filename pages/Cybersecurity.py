@@ -1,4 +1,3 @@
-# pages/Cybersecurity.py
 import streamlit as st
 from datetime import datetime
 from pathlib import Path
@@ -116,7 +115,8 @@ class CybersecurityDashboard:
 
         with c1:
             st.markdown("### 🔥 Severity")
-            render_chart(self.df, "pie", "severity", title="Severity Breakdown")
+            render_chart(self.df, "pie", "severity",
+                         title="Severity Breakdown")
 
         with c2:
             st.markdown("### 🧩 Category")
@@ -133,7 +133,7 @@ class CybersecurityDashboard:
         if self.df is None or self.df.empty:
             st.info("No incidents available.")
         else:
-            st.dataframe(self.df, use_container_width=True, height=360)
+            st.dataframe(self.df, width='stretch', height=360)
 
         st.markdown("---")
 
@@ -147,15 +147,20 @@ class CybersecurityDashboard:
                     f"inc_{datetime.now().strftime('%Y%m%d%H%M%S')}.csv"
                 tmp.parent.mkdir(exist_ok=True)
                 tmp.write_bytes(file.getbuffer())
-                load_csv_to_table(str(tmp), "cyber_incidents",
-                                  if_exists="replace" if mode == "replace" else "append")
-                self.reload_page()
+                try:
+                    load_csv_to_table(str(tmp), "cyber_incidents",
+                                      if_exists="replace" if mode == "replace" else "append")
+                    st.success("Uploaded successfully.")
+                    self.reload_page()
+                except Exception as e:
+                    st.error(f"Upload failed: {e}")
 
         st.markdown("---")
 
         st.subheader("➕ Add Incident")
         with st.form("add_incident"):
-            sev = st.selectbox("Severity", ["Low", "Medium", "High", "Critical"])
+            sev = st.selectbox(
+                "Severity", ["Low", "Medium", "High", "Critical"])
             cat = st.text_input("Category", "Phishing")
             status = st.selectbox("Status", ["Open", "Closed"])
             desc = st.text_area("Description")
