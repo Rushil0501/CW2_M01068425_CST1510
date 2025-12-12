@@ -214,6 +214,50 @@ def load_custom_css():
             font-size: 14px;
         }
         
+        @keyframes typing-dot {
+            0%, 60%, 100% { 
+                opacity: 0.3; 
+                transform: translateY(0);
+            }
+            30% { 
+                opacity: 1; 
+                transform: translateY(-3px);
+            }
+        }
+        
+        .typing-dots {
+            display: inline-block;
+            margin-left: 3px;
+        }
+        
+        .typing-dots span {
+            display: inline-block;
+            animation: typing-dot 1.4s infinite;
+            margin: 0 1px;
+        }
+        
+        .typing-dots span:nth-child(1) {
+            animation-delay: 0s;
+        }
+        
+        .typing-dots span:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+        
+        .typing-dots span:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+        
+        .ai-response {
+            background: rgba(155, 231, 255, 0.15); 
+            padding: 10px;
+            border-radius: 12px;
+            border-bottom-left-radius: 0;
+            margin-bottom: 5px;
+            color: white;
+            font-size: 14px;
+        }
+        
         </style>
         """,
         unsafe_allow_html=True,

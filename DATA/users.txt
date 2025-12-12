@@ -1,4 +1,3 @@
-admin,$2b$12$H/M/pPGeUhuXYio3dtrWneWC79MgrvrOZpeTu9.116p//jWHIZUr.,admin
 Rushil_IT,$2b$12$79DpD1yCatpa7nnqcoXi8ONOqG5YYbAaMyiF.P87A9iFvUKTkf3Dq,it
 Rushil_Cyber,$2b$12$FpKZ6wrByK3VG4gOQ/2XFeXoFHUJHg3RFaf8BhEcr49uG6NZzHrZq,cyber
 Rushil_Data,$2b$12$UpCJKSymhRejCBPJmPiAPuvAOTsWHrGoZNsju8puAp0yJ4ufI2dWu,data

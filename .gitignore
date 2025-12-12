@@ -8,3 +8,9 @@ venv/
 env/
 ENV/
 
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+DATA/intelligence_platform.db
+

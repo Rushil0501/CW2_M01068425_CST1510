@@ -3,14 +3,7 @@ from datetime import datetime
 
 
 def load_history(username, role):
-    """
-    Returns chat history as a list of dictionaries:
-    {
-        "role": "user" or "assistant",
-        "content": "...",
-        "timestamp": "..."
-    }
-    """
+    """Return chat history as a list of dictionaries with role, content, and timestamp."""
     conn = connect_database()
     cur = conn.cursor()
     try:
@@ -26,9 +19,9 @@ def load_history(username, role):
         history = []
         for r in rows:
             history.append({
-                "role": r[0],         # message_role
-                "content": r[1],      # content
-                "timestamp": r[2],    # timestamp
+                "role": r[0],
+                "content": r[1],
+                "timestamp": r[2],
             })
         return history
 
@@ -40,9 +33,7 @@ def load_history(username, role):
 
 
 def save_message(username, role, message_role, content):
-    """
-    Saves one chat message to DB.
-    """
+    """Save one chat message to database."""
     conn = connect_database()
     cur = conn.cursor()
     try:
@@ -59,9 +50,7 @@ def save_message(username, role, message_role, content):
 
 
 def delete_history(username, role):
-    """
-    Deletes all chat history for a user & role.
-    """
+    """Delete all chat history for a user and role."""
     conn = connect_database()
     cur = conn.cursor()
     try:
@@ -75,15 +64,9 @@ def delete_history(username, role):
     finally:
         conn.close()
 
-# ============================================================
-# OOP SERVICE
-# ============================================================
-
-
+# OOP Service wrapper
 class AIHistoryService:
-    """
-    Manages AI chat history.
-    """
+    """Manage AI chat history."""
 
     def load(self, username, role):
         return load_history(username, role)

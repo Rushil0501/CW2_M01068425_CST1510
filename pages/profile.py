@@ -6,6 +6,7 @@ from PIL import Image
 from app.services.user_service import (
     get_user_by_username,
     update_user_profile_image,
+    remove_user_profile_image,
 )
 from app.ui.styles import load_custom_css
 
@@ -44,6 +45,19 @@ class ProfilePage:
             st.switch_page(last)
         elif st.button("⬅ Back to Home"):
             st.switch_page("Home.py")
+        
+        # Remove profile picture button (only show if user has a profile picture)
+        if self.user.get("avatar"):
+            if st.button("🗑️ Remove Profile Picture", key="remove_avatar"):
+                success, message = remove_user_profile_image(self.username)
+                if success:
+                    st.success(message)
+                    st.cache_data.clear()
+                    # Refresh user data
+                    self.user = get_user_by_username(self.username)
+                    st.rerun()
+                else:
+                    st.error(message)
 
         st.markdown("---")
 

@@ -14,7 +14,7 @@ def create_users_table(conn):
 
 
 def create_cyber_incidents_table(conn):
-    """Matches cyber_incidents.csv exactly."""
+    """Create table matching cyber_incidents.csv schema."""
     cur = conn.cursor()
     cur.execute("""
     CREATE TABLE IF NOT EXISTS cyber_incidents (
@@ -30,7 +30,7 @@ def create_cyber_incidents_table(conn):
 
 
 def create_datasets_metadata_table(conn):
-    """Matches datasets_metadata.csv exactly."""
+    """Create table matching datasets_metadata.csv schema."""
     cur = conn.cursor()
     cur.execute("""
     CREATE TABLE IF NOT EXISTS datasets_metadata (
@@ -46,7 +46,7 @@ def create_datasets_metadata_table(conn):
 
 
 def create_it_tickets_table(conn):
-    """Matches it_tickets.csv exactly."""
+    """Create table matching it_tickets.csv schema."""
     cur = conn.cursor()
     cur.execute("""
     CREATE TABLE IF NOT EXISTS it_tickets (
@@ -63,6 +63,7 @@ def create_it_tickets_table(conn):
 
 
 def create_ai_chat_history_table(conn):
+    """Create table for storing AI chat history."""
     cur = conn.cursor()
     cur.execute("""
     CREATE TABLE IF NOT EXISTS ai_chat_history (

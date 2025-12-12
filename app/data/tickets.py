@@ -51,9 +51,8 @@ def delete_ticket(ticket_id):
 
 
 def get_all_tickets():
-    """Return all tickets as a DataFrame."""
+    """Return all tickets as a DataFrame, ordered by creation date (newest first)."""
     conn = connect_database()
-    # logical ordering: High priority first, then by date
     df = pd.read_sql_query(
         "SELECT * FROM it_tickets ORDER BY created_at DESC", conn)
     conn.close()

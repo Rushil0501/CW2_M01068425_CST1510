@@ -14,7 +14,7 @@ def render_chart(df, chart_type="bar", x=None, y=None, color=None, title="", val
 
     if chart_type == "bar":
         if y is None and x is not None:
-            # Count occurrences if y is not provided
+            # Count occurrences if y not provided
             value_counts = df[x].value_counts()
             fig = px.bar(
                 x=value_counts.index, y=value_counts.values,
@@ -54,7 +54,7 @@ def render_chart(df, chart_type="bar", x=None, y=None, color=None, title="", val
             template="plotly_dark",
             color_discrete_sequence=NEON_COLORS
         )
-        fig.update_traces(line_shape="spline")   # Smooth curve line
+        fig.update_traces(line_shape="spline")   # Smooth curve
 
     elif chart_type == "scatter":
         scatter_kwargs = {

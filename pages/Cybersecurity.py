@@ -113,6 +113,42 @@ class CybersecurityDashboard:
 
     def render_main_panel(self):
         st.subheader("📊 Cybersecurity Analytics Overview")
+        
+        # Key Metrics at the top
+        if self.df is not None and not self.df.empty:
+            total_incidents = len(self.df)
+            open_incidents = len(self.df[self.df.get('status', pd.Series()).str.lower() == 'open']) if 'status' in self.df.columns else 0
+            closed_incidents = len(self.df[self.df.get('status', pd.Series()).str.lower() == 'closed']) if 'status' in self.df.columns else 0
+            critical_incidents = len(self.df[self.df.get('severity', pd.Series()).str.lower() == 'critical']) if 'severity' in self.df.columns else 0
+            high_severity = len(self.df[self.df.get('severity', pd.Series()).str.lower() == 'high']) if 'severity' in self.df.columns else 0
+            unique_categories = self.df['category'].nunique() if 'category' in self.df.columns else 0
+            resolved_rate = round((closed_incidents / total_incidents * 100), 1) if total_incidents > 0 else 0
+            
+            # First row of metrics
+            metric_col1, metric_col2, metric_col3, metric_col4 = st.columns(4)
+            with metric_col1:
+                st.metric("Total Incidents", total_incidents)
+            with metric_col2:
+                st.metric("Open Incidents", open_incidents)
+            with metric_col3:
+                st.metric("Closed Incidents", closed_incidents)
+            with metric_col4:
+                st.metric("Resolution Rate", f"{resolved_rate}%")
+            
+            # Second row of metrics
+            metric_col5, metric_col6, metric_col7, metric_col8 = st.columns(4)
+            with metric_col5:
+                st.metric("Critical Severity", critical_incidents)
+            with metric_col6:
+                st.metric("High Severity", high_severity)
+            with metric_col7:
+                st.metric("Unique Categories", unique_categories)
+            with metric_col8:
+                most_common_category = self.df['category'].mode()[0] if 'category' in self.df.columns and not self.df['category'].mode().empty else "N/A"
+                st.metric("Most Common Category", most_common_category)
+            
+            st.markdown("---")
+        
         c1, c2, c3 = st.columns([1, 1, 1])
 
         with c1:
@@ -131,9 +167,9 @@ class CybersecurityDashboard:
 
         st.markdown("---")
         
-        # Additional Visualizations Section - Compact View
-        with st.expander("📈 Advanced Analytics", expanded=False):
-            if self.df is not None and not self.df.empty:
+        # Additional Visualizations Section - Direct Display
+        st.markdown("### 📈 Advanced Analytics")
+        if self.df is not None and not self.df.empty:
                 # Row 1: Status Distribution and Severity vs Status
                 r1_col1, r1_col2, r1_col3, r1_col4 = st.columns([1, 1, 1, 1])
                 
@@ -200,6 +236,8 @@ class CybersecurityDashboard:
                                    title="Status Trends")
                     except Exception:
                         pass
+        else:
+            st.info("No data available for advanced analytics")
 
         st.markdown("---")
 
@@ -277,47 +315,151 @@ class CybersecurityDashboard:
         # Display example questions as buttons
         for i, question in enumerate(example_questions):
             if st.button(question, key=f"example_cyber_{i}"):
-                # Set the question in session state to populate input
-                st.session_state["cyber_ai_input"] = question
+                # Automatically send the question
+                history = load_ai_history(self.username, "cyber") or []
+                save_ai_message(self.username, "cyber", "user", question)
+                chat_history = [{"role": m["role"], "content": m["content"]}
+                                for m in history]
+
+                if get_gemini_response:
+                    typing_placeholder = st.empty()
+                    # Show typing animation
+                    typing_placeholder.markdown(
+                        "<div class='ai-chat-bubble-assistant'><strong>AI:</strong> <span>Typing<span class='typing-dots'><span>.</span><span>.</span><span>.</span></span></span></div>", 
+                        unsafe_allow_html=True
+                    )
+                    full = ""
+                    try:
+                        for chunk in get_gemini_response(question, chat_history, "cyber"):
+                            if hasattr(chunk, "text"):
+                                full += chunk.text
+                                typing_placeholder.markdown(
+                                    f"<div class='ai-chat-bubble-assistant'><strong>AI:</strong> {full}▌</div>", 
+                                    unsafe_allow_html=True
+                                )
+                        typing_placeholder.markdown(
+                            f"<div class='ai-chat-bubble-assistant'><strong>AI:</strong> {full}</div>", 
+                            unsafe_allow_html=True
+                        )
+                        save_ai_message(self.username, "cyber", "assistant", full)
+                    except Exception as e:
+                        error_msg = f"⚠️ AI Error: {str(e)}"
+                        typing_placeholder.markdown(
+                            f"<div class='ai-chat-bubble-assistant'><strong>AI:</strong> {error_msg}</div>", 
+                            unsafe_allow_html=True
+                        )
+                        save_ai_message(self.username, "cyber", "assistant", error_msg)
+                else:
+                    fallback = f"[Local] Received: {question}"
+                    save_ai_message(self.username, "cyber", "assistant", fallback)
+                
                 st.rerun()
 
         st.markdown("---")
 
         history = load_ai_history(self.username, "cyber") or []
         
-        # Chat history container with scroll
-        chat_container = st.container()
-        with chat_container:
-            if history:
-                for msg in history:
-                    cls = "ai-chat-bubble-user" if msg["role"] == "user" else "ai-chat-bubble-assistant"
-                    st.markdown(
-                        f"<div class='{cls}'>{msg['content']}</div>", unsafe_allow_html=True)
-                    st.caption(msg["timestamp"])
+        # Show last message outside, previous history in dropdown
+        if history:
+            # Find the last user message (question) and its answer
+            last_user_msg = None
+            last_user_idx = None
+            for i in range(len(history) - 1, -1, -1):
+                if history[i]["role"] == "user":
+                    last_user_msg = history[i]
+                    last_user_idx = i
+                    break
+            
+            # Display last message/question directly (not in expander)
+            if last_user_msg:
+                st.markdown("### 💬 Last Message")
+                st.markdown(f"<div class='ai-chat-bubble-user'><strong>You:</strong> {last_user_msg['content']}</div>", unsafe_allow_html=True)
+                st.caption(last_user_msg["timestamp"])
+                
+                # Show the corresponding answer if it exists
+                if last_user_idx + 1 < len(history) and history[last_user_idx + 1]["role"] == "assistant":
+                    answer = history[last_user_idx + 1]
+                    st.markdown(f"<div class='ai-chat-bubble-assistant'><strong>AI:</strong> {answer['content']}</div>", unsafe_allow_html=True)
+                    st.caption(answer["timestamp"])
+                
+                # Show previous history in dropdown
+                if len(history) > 2:  # More than just the last Q&A pair
+                    previous_history = history[:last_user_idx]
+                    if previous_history:
+                        with st.expander("💬 Previous Chat History", expanded=False):
+                            for msg in previous_history:
+                                cls = "ai-chat-bubble-user" if msg["role"] == "user" else "ai-chat-bubble-assistant"
+                                who = "You" if msg["role"] == "user" else "AI"
+                                st.markdown(f"<div class='{cls}'><strong>{who}:</strong> {msg['content']}</div>", unsafe_allow_html=True)
+                                st.caption(msg["timestamp"])
             else:
-                st.info("No chat history. Try asking a question above!")
+                st.info("No questions asked yet. Try asking a question above!")
+        else:
+            st.info("No chat history. Try asking a question above!")
 
         st.markdown("---")
         
+        # Function to handle sending message - sets flag instead of processing immediately
+        def send_message():
+            if "cyber_ai_input" in st.session_state and st.session_state.cyber_ai_input:
+                st.session_state.cyber_send_trigger = True
+        
+        # Check if we need to process a message
+        if st.session_state.get("cyber_send_trigger", False) and st.session_state.get("cyber_ai_input"):
+            user_message = st.session_state.cyber_ai_input
+            st.session_state.cyber_send_trigger = False
+            
+            save_ai_message(self.username, "cyber", "user", user_message)
+            chat_history = [{"role": m["role"], "content": m["content"]}
+                            for m in history]
+
+            if get_gemini_response:
+                full = ""
+                typing_placeholder = st.empty()
+                # Show typing animation
+                typing_placeholder.markdown(
+                    "<div class='ai-chat-bubble-assistant'><strong>AI:</strong> <span>Typing<span class='typing-dots'><span>.</span><span>.</span><span>.</span></span></span></div>", 
+                    unsafe_allow_html=True
+                )
+                try:
+                    for chunk in get_gemini_response(user_message, chat_history, "cyber"):
+                        if hasattr(chunk, "text"):
+                            full += chunk.text
+                            typing_placeholder.markdown(
+                                f"<div class='ai-chat-bubble-assistant'><strong>AI:</strong> {full}▌</div>", 
+                                unsafe_allow_html=True
+                            )
+                    typing_placeholder.markdown(
+                        f"<div class='ai-chat-bubble-assistant'><strong>AI:</strong> {full}</div>", 
+                        unsafe_allow_html=True
+                    )
+                    save_ai_message(self.username, "cyber", "assistant", full)
+                except Exception as e:
+                    error_msg = f"⚠️ AI Error: {str(e)}"
+                    typing_placeholder.markdown(
+                        f"<div class='ai-chat-bubble-assistant'><strong>AI:</strong> {error_msg}</div>", 
+                        unsafe_allow_html=True
+                    )
+                    save_ai_message(self.username, "cyber", "assistant", error_msg)
+            else:
+                fallback = f"[Local] Received: {user_message}"
+                save_ai_message(self.username, "cyber", "assistant", fallback)
+            
+            # Clear input and rerun
+            st.session_state.cyber_ai_input = ""
+            st.rerun()
+        
         # Input and send
-        ai_input = st.text_input("Ask the Cyber AI…", key="cyber_ai_input")
+        ai_input = st.text_input(
+            "Ask the Cyber AI… (Press Enter to send)", 
+            key="cyber_ai_input",
+            on_change=send_message
+        )
         
         col1, col2 = st.columns([3, 1])
         with col1:
-            if st.button("Send", key="cyber_send") and ai_input:
-                save_ai_message(self.username, "cyber", "user", ai_input)
-                chat_history = [{"role": m["role"], "content": m["content"]}
-                                for m in history]
-
-                if get_gemini_response:
-                    full = ""
-                    placeholder = st.empty()
-                    for chunk in get_gemini_response(ai_input, chat_history, "cyber"):
-                        if hasattr(chunk, "text"):
-                            full += chunk.text
-                            placeholder.markdown(full + "▌")
-                    save_ai_message(self.username, "cyber", "assistant", full)
-
+            if st.button("Send", key="cyber_send"):
+                send_message()
                 st.rerun()
         
         with col2:

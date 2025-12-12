@@ -25,7 +25,7 @@ def setup_database_complete():
     migrated = migrate_users_from_file()
     print(f"    -> Migrated {migrated} users")
 
-    # Load CSVs if present
+    # Load CSV files if present
     print("[4/6] Loading CSV files...")
     csv_files = {
         "cyber_incidents.csv": ("DATA/cyber_incidents.csv", "cyber_incidents"),

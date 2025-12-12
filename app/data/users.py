@@ -3,11 +3,11 @@ import sqlite3
 
 
 def get_user_by_username(username):
-    """Return user row for given username or None."""
+    """Return user row for given username, or None if not found."""
     conn = connect_database()
     cur = conn.cursor()
     cur.execute(
-        "SELECT id, username, password_hash, role, created_at FROM users WHERE username = ?", (username,))
+        "SELECT id, username, password_hash, role, avatar, created_at FROM users WHERE username = ?", (username,))
     row = cur.fetchone()
     conn.close()
     return row

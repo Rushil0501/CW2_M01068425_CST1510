@@ -65,7 +65,7 @@ Be clear, helpful, and professional.""",
 
         "data": """You are a Lead Data Scientist.
 Focus on: Pandas, NumPy, cleaning, statistics, ML concepts.
-Provide code snippets when helpful."""
+Provide clear explanations and insights about datasets. Only provide code snippets when the user explicitly asks for code or programming examples. Otherwise, focus on analytical insights, patterns, and recommendations."""
     }
     return personalities.get(role, "You are a helpful enterprise assistant.")
 
@@ -91,14 +91,66 @@ def get_data_context(role):
 
 
 def get_gemini_response(user_prompt, chat_history, role):
+    """Return a generator that yields response chunks for streaming."""
+    # Helper class for error messages
+    class ErrorChunk:
+        def __init__(self, text):
+            self.text = text
+    
     try:
-        api_key = st.secrets["GOOGLE_API_KEY"]
+        api_key = st.secrets.get("GOOGLE_API_KEY")
+        if not api_key:
+            yield ErrorChunk("⚠️ Error: Missing GOOGLE_API_KEY in secrets.toml. Please add your Google API key to .streamlit/secrets.toml")
+            return
         genai.configure(api_key=api_key)
-    except Exception:
-        return "⚠️ Error: Missing or invalid GOOGLE_API_KEY in secrets.toml"
+    except Exception as e:
+        yield ErrorChunk(f"⚠️ Error: Failed to configure API - {str(e)}")
+        return
 
     try:
-        model = genai.GenerativeModel("gemini-2.5-flash")
+        # Try to find an available model
+        model = None
+        last_error = None
+        
+        # First, try to list available models
+        try:
+            models = genai.list_models()
+            available_models = []
+            for m in models:
+                if hasattr(m, 'supported_generation_methods') and 'generateContent' in m.supported_generation_methods:
+                    model_name = m.name
+                    # Remove 'models/' prefix if present
+                    if model_name.startswith('models/'):
+                        model_name = model_name[7:]
+                    available_models.append(model_name)
+            
+            # Try available Gemini models first
+            if available_models:
+                for model_name in available_models:
+                    if 'gemini' in model_name.lower():
+                        try:
+                            model = genai.GenerativeModel(model_name)
+                            break
+                        except:
+                            continue
+        except:
+            pass
+        
+        # If no model found, try common names
+        if model is None:
+            model_names = ["gemini-pro", "gemini-1.5-pro"]
+            for model_name in model_names:
+                try:
+                    model = genai.GenerativeModel(model_name)
+                    break
+                except Exception as e:
+                    last_error = str(e)
+                    continue
+        
+        if model is None:
+            error_msg = f"⚠️ Error: Could not initialize Gemini model.\n\nError: {last_error or 'Unknown error'}\n\nPlease check:\n1. Your API key is valid and has proper permissions\n2. The Gemini API is enabled in your Google Cloud project\n3. Try using 'gemini-pro' model name"
+            yield ErrorChunk(error_msg)
+            return
 
         gemini_history = []
 
@@ -123,15 +175,12 @@ def get_gemini_response(user_prompt, chat_history, role):
         chat = model.start_chat(history=gemini_history)
         stream = chat.send_message(user_prompt, stream=True)
 
-        full_response = ""
         for chunk in stream:
-            if hasattr(chunk, "text"):
-                full_response += chunk.text
-
-        return full_response
+            if hasattr(chunk, "text") and chunk.text:
+                yield chunk
 
     except Exception as e:
-        return f"⚠️ AI Error: {str(e)}"
+        yield ErrorChunk(f"⚠️ AI Error: {str(e)}")
 
 
 def cyber_ai_chat(username, message):

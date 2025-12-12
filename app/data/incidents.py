@@ -3,7 +3,7 @@ import pandas as pd
 
 
 def insert_incident(timestamp, severity, category, status, description, incident_id=None):
-    """Insert a new incident; ID defaults to database-generated."""
+    """Insert a new incident. ID defaults to database-generated if not provided."""
     conn = connect_database()
     cur = conn.cursor()
 

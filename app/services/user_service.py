@@ -38,19 +38,19 @@ def register_user(username: str, password: str, role: str = "user"):
 
         conn.commit()
         conn.close()
-        
-        # Append user to users.txt file in the same format
+
+        # Append user to users.txt file
         try:
             # Ensure DATA directory exists
             USERS_TXT_PATH.parent.mkdir(parents=True, exist_ok=True)
-            
-            # Append user to users.txt in format: username,password_hash,role
+
+            # Append in format: username,password_hash,role
             with open(USERS_TXT_PATH, "a", encoding="utf-8") as fh:
                 fh.write(f"{username},{pw_hash},{role}\n")
         except Exception as file_error:
-            # Log error but don't fail registration if file write fails
+            # Log warning but don't fail registration
             print(f"Warning: Could not write to users.txt: {file_error}")
-        
+
         return True, "User registered."
 
     except Exception as e:
@@ -75,7 +75,7 @@ def login_user(username: str, password: str):
 
         stored_hash, role = row[0], row[1]
 
-        # Compare bcrypt hash
+        # Verify password against stored hash
         if not verify_password(password, stored_hash):
             return False, "Incorrect password.", None, None
 
@@ -87,7 +87,7 @@ def login_user(username: str, password: str):
 
 
 def migrate_users_from_file():
-    """Import users from DATA/users.txt, hashing any plain text passwords."""
+    """Import users from DATA/users.txt, hashing any plain text passwords if needed."""
     if not USERS_TXT_PATH.exists():
         return 0
 
@@ -156,7 +156,7 @@ def get_user_by_username(username: str):
 
 
 def update_user_profile_image(username: str, image_path: str):
-    """Store an absolute avatar path for use in img tags."""
+    """Store absolute avatar path for use in image tags."""
     try:
         abs_path = os.path.abspath(image_path)
         abs_path = abs_path.replace("\\", "/")
@@ -171,6 +171,40 @@ def update_user_profile_image(username: str, image_path: str):
     except Exception as e:
         print("update_user_profile_image error:", e)
         return False
+
+
+def remove_user_profile_image(username: str):
+    """Remove user's profile picture from database and delete file.
+
+    Returns:
+        tuple: (success: bool, message: str)
+    """
+    try:
+        # Get current avatar path before removing
+        user = get_user_by_username(username)
+        avatar_path = user.get("avatar") if user else None
+
+        # Remove from database
+        conn = connect_database()
+        cur = conn.cursor()
+        cur.execute("UPDATE users SET avatar = NULL WHERE username = ?",
+                    (username,))
+        conn.commit()
+        conn.close()
+
+        # Delete file if it exists
+        if avatar_path and os.path.exists(avatar_path):
+            try:
+                os.remove(avatar_path)
+            except Exception as file_error:
+                # Log warning but don't fail
+                print(f"Warning: Could not delete avatar file: {file_error}")
+
+        return True, "Profile picture removed successfully."
+    except Exception as e:
+        print("remove_user_profile_image error:", e)
+        return False, f"Failed to remove profile picture: {str(e)}"
+
 
 class UserService:
     """Object-oriented wrapper for user operations."""

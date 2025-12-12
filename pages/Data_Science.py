@@ -108,6 +108,42 @@ class DataScienceDashboard:
 
     def render_main_panel(self):
         st.subheader("📈 Dataset Analytics Overview")
+        
+        # Key Metrics at the top
+        if self.df is not None and not self.df.empty:
+            total_datasets = len(self.df)
+            total_rows = self.df['rows'].sum() if 'rows' in self.df.columns else 0
+            total_columns = self.df['columns'].sum() if 'columns' in self.df.columns else 0
+            unique_uploaders = self.df['uploaded_by'].nunique() if 'uploaded_by' in self.df.columns else 0
+            avg_rows = round(self.df['rows'].mean(), 0) if 'rows' in self.df.columns else 0
+            avg_columns = round(self.df['columns'].mean(), 1) if 'columns' in self.df.columns else 0
+            total_data_points = total_rows * total_columns if total_rows > 0 and total_columns > 0 else 0
+            largest_dataset_rows = int(self.df['rows'].max()) if 'rows' in self.df.columns else 0
+            
+            # First row of metrics
+            metric_col1, metric_col2, metric_col3, metric_col4 = st.columns(4)
+            with metric_col1:
+                st.metric("Total Datasets", total_datasets)
+            with metric_col2:
+                st.metric("Total Rows", f"{total_rows:,}")
+            with metric_col3:
+                st.metric("Total Columns", total_columns)
+            with metric_col4:
+                st.metric("Total Data Points", f"{total_data_points:,}")
+            
+            # Second row of metrics
+            metric_col5, metric_col6, metric_col7, metric_col8 = st.columns(4)
+            with metric_col5:
+                st.metric("Unique Uploaders", unique_uploaders)
+            with metric_col6:
+                st.metric("Avg Rows per Dataset", f"{avg_rows:,.0f}")
+            with metric_col7:
+                st.metric("Avg Columns per Dataset", f"{avg_columns:.1f}")
+            with metric_col8:
+                st.metric("Largest Dataset", f"{largest_dataset_rows:,} rows")
+            
+            st.markdown("---")
+        
         c1, c2, c3 = st.columns([1, 1, 1])
 
         with c1:
@@ -137,9 +173,9 @@ class DataScienceDashboard:
         st.markdown("---")
         
         # Additional Visualizations Section
-        # Advanced Analytics - Compact View
-        with st.expander("📊 Advanced Dataset Analytics", expanded=False):
-            if self.df is not None and not self.df.empty:
+        # Advanced Analytics - Direct Display
+        st.markdown("### 📊 Advanced Dataset Analytics")
+        if self.df is not None and not self.df.empty:
                 # Row 1: Multiple small charts
                 r1_col1, r1_col2, r1_col3, r1_col4 = st.columns([1, 1, 1, 1])
                 
@@ -216,6 +252,8 @@ class DataScienceDashboard:
                             )
                             render_chart(df_heatmap, "heatmap", groupby=["uploaded_by", "size_category"],
                                        title="Uploader Heatmap")
+        else:
+            st.info("No data available for advanced analytics")
 
         st.markdown("---")
 
@@ -299,6 +337,9 @@ class DataScienceDashboard:
     def render_ai_panel(self):
         st.markdown("### 🧠 Data AI Assistant")
         
+        # Info about preferences
+        st.info("💡 **Tip:** You can ask for explanations, insights, or code examples. Specify your preference in your question (e.g., 'explain without code' or 'show me the code').")
+        
         # Example questions
         example_questions = [
             "What is the total size of all datasets?",
@@ -314,68 +355,160 @@ class DataScienceDashboard:
         # Display example questions as buttons
         for i, question in enumerate(example_questions):
             if st.button(question, key=f"example_data_{i}"):
-                # Set the question in session state to populate input
-                st.session_state["data_query"] = question
+                # Automatically send the question
+                history = load_ai_history(self.username, "data") or []
+                save_ai_message(self.username, "data", "user", question)
+                chat_history = [{"role": r["role"], "content": r["content"]}
+                                for r in history]
+
+                if get_gemini_response:
+                    typing_placeholder = st.empty()
+                    # Show typing animation
+                    typing_placeholder.markdown(
+                        "<div class='ai-response'><strong>AI:</strong> <span>Typing<span class='typing-dots'><span>.</span><span>.</span><span>.</span></span></span></div>", 
+                        unsafe_allow_html=True
+                    )
+                    full = ""
+                    try:
+                        for chunk in get_gemini_response(question, chat_history, "data"):
+                            if hasattr(chunk, "text"):
+                                full += chunk.text
+                                typing_placeholder.markdown(
+                                    f"<div class='ai-response'><strong>AI:</strong> {full}▌</div>", 
+                                    unsafe_allow_html=True
+                                )
+                        typing_placeholder.markdown(
+                            f"<div class='ai-response'><strong>AI:</strong> {full}</div>", 
+                            unsafe_allow_html=True
+                        )
+                        save_ai_message(self.username, "data", "assistant", full)
+                    except Exception as e:
+                        error_msg = f"⚠️ AI Error: {str(e)}"
+                        typing_placeholder.markdown(
+                            f"<div class='ai-response'><strong>AI:</strong> {error_msg}</div>", 
+                            unsafe_allow_html=True
+                        )
+                        save_ai_message(self.username, "data", "assistant", error_msg)
+                else:
+                    fallback = f"[Local] Received: {question}"
+                    save_ai_message(self.username, "data", "assistant", fallback)
+                
                 st.rerun()
 
         st.markdown("---")
 
         history = load_ai_history(self.username, "data") or []
         
-        # Chat history container
-        chat_container = st.container()
-        with chat_container:
-            if history:
-                for msg in history:
-                    who = "You" if msg["role"] == "user" else "AI"
-                    cls = "ai-chat-bubble-user" if msg["role"] == "user" else "ai-chat-bubble-assistant"
-                    st.markdown(
-                        f"<div class='{cls}'><strong>{who}:</strong> {msg['content']}</div>", unsafe_allow_html=True)
-                    st.caption(msg["timestamp"])
+        # Show last message outside, previous history in dropdown
+        if history:
+            # Find the last user message (question) and its answer
+            last_user_msg = None
+            last_user_idx = None
+            for i in range(len(history) - 1, -1, -1):
+                if history[i]["role"] == "user":
+                    last_user_msg = history[i]
+                    last_user_idx = i
+                    break
+            
+            # Display last message/question directly (not in expander)
+            if last_user_msg:
+                st.markdown("### 💬 Last Message")
+                st.markdown(f"<div class='ai-chat-bubble-user'><strong>You:</strong> {last_user_msg['content']}</div>", unsafe_allow_html=True)
+                st.caption(last_user_msg["timestamp"])
+                
+                # Show the corresponding answer if it exists
+                if last_user_idx + 1 < len(history) and history[last_user_idx + 1]["role"] == "assistant":
+                    answer = history[last_user_idx + 1]
+                    st.markdown(f"<div class='ai-chat-bubble-assistant'><strong>AI:</strong> {answer['content']}</div>", unsafe_allow_html=True)
+                    st.caption(answer["timestamp"])
+                
+                # Show previous history in dropdown
+                if len(history) > 2:  # More than just the last Q&A pair
+                    previous_history = history[:last_user_idx]
+                    if previous_history:
+                        with st.expander("💬 Previous Chat History", expanded=False):
+                            for msg in previous_history:
+                                cls = "ai-chat-bubble-user" if msg["role"] == "user" else "ai-chat-bubble-assistant"
+                                who = "You" if msg["role"] == "user" else "AI"
+                                st.markdown(f"<div class='{cls}'><strong>{who}:</strong> {msg['content']}</div>", unsafe_allow_html=True)
+                                st.caption(msg["timestamp"])
             else:
-                st.info("No chat history. Try asking a question above!")
+                st.info("No questions asked yet. Try asking a question above!")
+        else:
+            st.info("No chat history. Try asking a question above!")
 
         st.markdown("---")
         
+        # Function to handle sending message - sets flag instead of processing immediately
+        def send_message():
+            if "data_query" in st.session_state and st.session_state.data_query:
+                st.session_state.data_send_trigger = True
+        
+        # Check if we need to process a message
+        if st.session_state.get("data_send_trigger", False) and st.session_state.get("data_query"):
+            user_message = st.session_state.data_query
+            st.session_state.data_send_trigger = False
+            
+            try:
+                save_ai_message(self.username, "data", "user", user_message)
+            except Exception:
+                pass
+            chat_history = [{"role": r["role"], "content": r["content"]}
+                            for r in history]
+            
+            if get_gemini_response:
+                typing_placeholder = st.empty()
+                # Show typing animation
+                typing_placeholder.markdown(
+                    "<div class='ai-response'><strong>AI:</strong> <span>Typing<span class='typing-dots'><span>.</span><span>.</span><span>.</span></span></span></div>", 
+                    unsafe_allow_html=True
+                )
+                full = ""
+                try:
+                    for chunk in get_gemini_response(user_message, chat_history, "data"):
+                        if hasattr(chunk, "text"):
+                            full += chunk.text
+                            typing_placeholder.markdown(
+                                f"<div class='ai-response'><strong>AI:</strong> {full}▌</div>", 
+                                unsafe_allow_html=True
+                            )
+                    typing_placeholder.markdown(
+                        f"<div class='ai-response'><strong>AI:</strong> {full}</div>", 
+                        unsafe_allow_html=True
+                    )
+                    save_ai_message(self.username, "data", "assistant", full)
+                except Exception as e:
+                    error_msg = f"⚠️ AI Error: {str(e)}"
+                    typing_placeholder.markdown(
+                        f"<div class='ai-response'><strong>AI:</strong> {error_msg}</div>", 
+                        unsafe_allow_html=True
+                    )
+                    save_ai_message(self.username, "data", "assistant", error_msg)
+            else:
+                fallback = f"[Local] Received: {user_message}"
+                st.markdown(
+                    f"<div class='ai-response'>{fallback}</div>", unsafe_allow_html=True)
+                try:
+                    save_ai_message(self.username, "data", "assistant", fallback)
+                except Exception:
+                    pass
+            
+            # Clear input and rerun
+            st.session_state.data_query = ""
+            st.rerun()
+        
         # Input and send
-        q = st.text_input("Ask the Data AI assistant...", key="data_query")
+        q = st.text_input(
+            "Ask the Data AI assistant... (Press Enter to send)", 
+            key="data_query",
+            on_change=send_message
+        )
         
         col1, col2 = st.columns([3, 1])
         with col1:
             if st.button("Send", key="data_send"):
-                if q:
-                    try:
-                        save_ai_message(self.username, "data", "user", q)
-                    except Exception:
-                        pass
-                    chat_history = [{"role": r["role"], "content": r["content"]}
-                                    for r in history]
-                    if get_gemini_response:
-                        placeholder = st.empty()
-                        full = ""
-                        try:
-                            stream = get_gemini_response(q, chat_history, "data")
-                            for chunk in stream:
-                                if hasattr(chunk, "text"):
-                                    full += chunk.text
-                                    placeholder.markdown(
-                                        f"<div class='ai-response'>{full}▌</div>", unsafe_allow_html=True)
-                            placeholder.markdown(
-                                f"<div class='ai-response'>{full}</div>", unsafe_allow_html=True)
-                            save_ai_message(self.username, "data",
-                                            "assistant", full)
-                        except Exception as e:
-                            st.error(f"AI error: {e}")
-                    else:
-                        fallback = f"[Local] Received: {q}"
-                        st.markdown(
-                            f"<div class='ai-response'>{fallback}</div>", unsafe_allow_html=True)
-                        try:
-                            save_ai_message(self.username, "data",
-                                            "assistant", fallback)
-                        except Exception:
-                            pass
-                    st.rerun()
+                send_message()
+                st.rerun()
         
         with col2:
             if st.button("🧹 Clear", key="data_clear"):
