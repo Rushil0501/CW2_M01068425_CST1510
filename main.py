@@ -14,19 +14,19 @@ def setup_database_complete():
     print(" STARTING DATABASE SETUP ")
     print("="*50)
 
-    print("\n[1/5] Connecting to database...")
+    print("\n[1/6] Connecting to database...")
     conn = connect_database()
 
-    print("[2/5] Creating tables...")
+    print("[2/6] Creating tables...")
     create_all_tables(conn)
     print("    -> All tables created (including AI chat history)")
 
-    print("[3/5] Migrating users from users.txt...")
+    print("[3/6] Migrating users from users.txt...")
     migrated = migrate_users_from_file()
     print(f"    -> Migrated {migrated} users")
 
     # Load CSVs if present
-    print("[4/5] Loading CSV files...")
+    print("[4/6] Loading CSV files...")
     csv_files = {
         "cyber_incidents.csv": ("DATA/cyber_incidents.csv", "cyber_incidents"),
         "datasets_metadata.csv": ("DATA/datasets_metadata.csv", "datasets_metadata"),
@@ -52,9 +52,22 @@ def setup_database_complete():
         else:
             print(f"    -> {name} not found. Skipping.")
 
-    print("[5/5] Creating Demo Admin User...")
+    print("[5/6] Creating Demo Admin User...")
     success, msg = register_user("admin", "Admin123!", "admin")
     print(f"    -> {msg}")
+
+    print("[6/6] Creating Demo Accounts...")
+    demo_users = [
+        ("Rushil_Cyber", "SecurePass123", "cyber"),
+        ("Rushil_Data", "SecurePass123", "data"),
+        ("Rushil_IT", "SecurePass123", "it"),
+    ]
+    for username, password, role in demo_users:
+        success, msg = register_user(username, password, role)
+        if success:
+            print(f"    -> Created demo user: {username} ({role})")
+        else:
+            print(f"    -> {username}: {msg}")
 
     conn.close()
     print("\n" + "="*50)

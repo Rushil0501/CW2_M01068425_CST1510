@@ -38,6 +38,19 @@ def register_user(username: str, password: str, role: str = "user"):
 
         conn.commit()
         conn.close()
+        
+        # Append user to users.txt file in the same format
+        try:
+            # Ensure DATA directory exists
+            USERS_TXT_PATH.parent.mkdir(parents=True, exist_ok=True)
+            
+            # Append user to users.txt in format: username,password_hash,role
+            with open(USERS_TXT_PATH, "a", encoding="utf-8") as fh:
+                fh.write(f"{username},{pw_hash},{role}\n")
+        except Exception as file_error:
+            # Log error but don't fail registration if file write fails
+            print(f"Warning: Could not write to users.txt: {file_error}")
+        
         return True, "User registered."
 
     except Exception as e:

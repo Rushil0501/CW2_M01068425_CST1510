@@ -2,6 +2,7 @@ import streamlit as st
 from datetime import datetime
 from pathlib import Path
 import os
+import pandas as pd
 
 from app.ui.styles import load_custom_css
 from app.ui.charts import render_chart
@@ -36,14 +37,15 @@ class CybersecurityDashboard:
 
     @staticmethod
     def reload_page():
-        try:
-            if hasattr(st, "rerun"):
-                st.rerun()
-                return
-        except Exception:
-            pass
-        st.markdown("<script>window.location.reload();</script>",
-                    unsafe_allow_html=True)
+        """Reload page by logging out and redirecting to login."""
+        st.query_params.clear()
+        if "token" in st.session_state:
+            del st.session_state["token"]
+        if "user" in st.session_state:
+            del st.session_state["user"]
+        if "role" in st.session_state:
+            del st.session_state["role"]
+        st.switch_page("Home.py")
         st.stop()
 
     def authenticate(self):
@@ -128,12 +130,90 @@ class CybersecurityDashboard:
             render_chart(self.df, "line", "timestamp", title="Incident Trend")
 
         st.markdown("---")
+        
+        # Additional Visualizations Section - Compact View
+        with st.expander("📈 Advanced Analytics", expanded=False):
+            if self.df is not None and not self.df.empty:
+                # Row 1: Status Distribution and Severity vs Status
+                r1_col1, r1_col2, r1_col3, r1_col4 = st.columns([1, 1, 1, 1])
+                
+                with r1_col1:
+                    st.markdown("#### 📊 Status")
+                    render_chart(self.df, "pie", "status", title="Status")
+                
+                with r1_col2:
+                    st.markdown("#### 🔍 Severity")
+                    render_chart(self.df, "box", x="status", y="severity", 
+                               title="Severity by Status")
+                
+                with r1_col3:
+                    st.markdown("#### 🔥 Heatmap")
+                    if "severity" in self.df.columns and "category" in self.df.columns:
+                        render_chart(self.df, "heatmap", groupby=["severity", "category"],
+                                   title="Severity-Category")
+                
+                with r1_col4:
+                    st.markdown("#### 📊 Category")
+                    render_chart(self.df, "histogram", x="category", 
+                               title="Category Dist")
+                
+                # Row 2: Time-based analysis
+                if "timestamp" in self.df.columns:
+                    try:
+                        df_time = self.df.copy()
+                        df_time['timestamp'] = pd.to_datetime(df_time['timestamp'], errors='coerce')
+                        df_time = df_time.dropna(subset=['timestamp'])
+                        
+                        if not df_time.empty:
+                            df_time['date'] = df_time['timestamp'].dt.date
+                            df_time['hour'] = df_time['timestamp'].dt.hour
+                            df_time['day_of_week'] = df_time['timestamp'].dt.day_name()
+                            
+                            time_col1, time_col2 = st.columns([1, 1])
+                            
+                            with time_col1:
+                                day_counts = df_time['day_of_week'].value_counts()
+                                day_order = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+                                day_counts = day_counts.reindex([d for d in day_order if d in day_counts.index], fill_value=0)
+                                day_df = pd.DataFrame({'day': day_counts.index, 'count': day_counts.values})
+                                render_chart(day_df, "bar", x="day", y="count",
+                                           title="By Day")
+                            
+                            with time_col2:
+                                hour_counts = df_time['hour'].value_counts().sort_index()
+                                hour_df = pd.DataFrame({'hour': hour_counts.index, 'count': hour_counts.values})
+                                render_chart(hour_df, "line", x="hour", y="count",
+                                           title="By Hour")
+                    except Exception:
+                        pass
+                
+                # Row 3: Status trends
+                if "timestamp" in self.df.columns and "status" in self.df.columns:
+                    try:
+                        df_status_time = self.df.copy()
+                        df_status_time['timestamp'] = pd.to_datetime(df_status_time['timestamp'], errors='coerce')
+                        df_status_time = df_status_time.dropna(subset=['timestamp'])
+                        df_status_time['date'] = df_status_time['timestamp'].dt.date
+                        
+                        status_counts = df_status_time.groupby(['date', 'status']).size().reset_index(name='count')
+                        render_chart(status_counts, "area", x="date", y="count", color="status",
+                                   title="Status Trends")
+                    except Exception:
+                        pass
 
-        st.subheader("📄 Cyber Incidents (raw)")
-        if self.df is None or self.df.empty:
-            st.info("No incidents available.")
-        else:
-            st.dataframe(self.df, width='stretch', height=360)
+        st.markdown("---")
+
+        st.subheader("📄 Cyber Incidents Data & AI Assistant")
+        data_col, ai_col = st.columns([2, 1])
+        
+        with data_col:
+            if self.df is None or self.df.empty:
+                st.info("No incidents available.")
+            else:
+                st.dataframe(self.df, height=500)
+        
+        with ai_col:
+            self.render_ai_panel()
 
         st.markdown("---")
 
@@ -151,7 +231,7 @@ class CybersecurityDashboard:
                     load_csv_to_table(str(tmp), "cyber_incidents",
                                       if_exists="replace" if mode == "replace" else "append")
                     st.success("Uploaded successfully.")
-                    self.reload_page()
+                    st.rerun()
                 except Exception as e:
                     st.error(f"Upload failed: {e}")
 
@@ -165,52 +245,91 @@ class CybersecurityDashboard:
             status = st.selectbox("Status", ["Open", "Closed"])
             desc = st.text_area("Description")
             if st.form_submit_button("Add"):
-                insert_incident(datetime.now().isoformat(),
-                                sev, cat, status, desc)
-                self.reload_page()
+                # Validate required fields
+                if not cat or not cat.strip():
+                    st.error("Category is required.")
+                elif not desc or not desc.strip():
+                    st.error("Description is required.")
+                else:
+                    try:
+                        insert_incident(datetime.now().isoformat(),
+                                        sev, cat.strip(), status, desc.strip())
+                        st.success("Incident added successfully!")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Failed to add incident: {e}")
 
     def render_ai_panel(self):
-        st.subheader("🧠 Cyber AI")
+        st.markdown("### 🧠 Cyber AI Assistant")
+        
+        # Example questions
+        example_questions = [
+            "What are the most common types of security incidents?",
+            "Which severity level has the most incidents?",
+            "Show me trends in cybersecurity threats",
+            "What percentage of incidents are still open?",
+            "Analyse the incident patterns by category",
+            "What are the critical security incidents?"
+        ]
+        
+        st.markdown("<div style='margin-bottom: 10px;'><strong style='color: #FF1493;'>💡 Example Questions:</strong></div>", unsafe_allow_html=True)
+        
+        # Display example questions as buttons
+        for i, question in enumerate(example_questions):
+            if st.button(question, key=f"example_cyber_{i}"):
+                # Set the question in session state to populate input
+                st.session_state["cyber_ai_input"] = question
+                st.rerun()
+
+        st.markdown("---")
 
         history = load_ai_history(self.username, "cyber") or []
-        for msg in history:
-            cls = "ai-chat-bubble-user" if msg["role"] == "user" else "ai-chat-bubble-assistant"
-            st.markdown(
-                f"<div class='{cls}'>{msg['content']}</div>", unsafe_allow_html=True)
-            st.caption(msg["timestamp"])
+        
+        # Chat history container with scroll
+        chat_container = st.container()
+        with chat_container:
+            if history:
+                for msg in history:
+                    cls = "ai-chat-bubble-user" if msg["role"] == "user" else "ai-chat-bubble-assistant"
+                    st.markdown(
+                        f"<div class='{cls}'>{msg['content']}</div>", unsafe_allow_html=True)
+                    st.caption(msg["timestamp"])
+            else:
+                st.info("No chat history. Try asking a question above!")
 
-        ai_input = st.text_input("Ask the Cyber AI…")
-        if st.button("Send") and ai_input:
-            save_ai_message(self.username, "cyber", "user", ai_input)
-            chat_history = [{"role": m["role"], "content": m["content"]}
-                            for m in history]
+        st.markdown("---")
+        
+        # Input and send
+        ai_input = st.text_input("Ask the Cyber AI…", key="cyber_ai_input")
+        
+        col1, col2 = st.columns([3, 1])
+        with col1:
+            if st.button("Send", key="cyber_send") and ai_input:
+                save_ai_message(self.username, "cyber", "user", ai_input)
+                chat_history = [{"role": m["role"], "content": m["content"]}
+                                for m in history]
 
-            if get_gemini_response:
-                full = ""
-                placeholder = st.empty()
-                for chunk in get_gemini_response(ai_input, chat_history, "cyber"):
-                    if hasattr(chunk, "text"):
-                        full += chunk.text
-                        placeholder.markdown(full + "▌")
-                save_ai_message(self.username, "cyber", "assistant", full)
+                if get_gemini_response:
+                    full = ""
+                    placeholder = st.empty()
+                    for chunk in get_gemini_response(ai_input, chat_history, "cyber"):
+                        if hasattr(chunk, "text"):
+                            full += chunk.text
+                            placeholder.markdown(full + "▌")
+                    save_ai_message(self.username, "cyber", "assistant", full)
 
-            self.reload_page()
-
-        if st.button("🧹 Clear Chat History"):
-            delete_ai_history(self.username, "cyber")
-            self.reload_page()
+                st.rerun()
+        
+        with col2:
+            if st.button("🧹 Clear", key="cyber_clear"):
+                delete_ai_history(self.username, "cyber")
+                st.rerun()
 
     def run(self):
         self.authenticate()
         self.render_header()
         self.load_data()
-        main_col, ai_col = st.columns([8, 3])
-
-        with main_col:
-            self.render_main_panel()
-
-        with ai_col:
-            self.render_ai_panel()
+        self.render_main_panel()
 
 
 if __name__ == "__main__":

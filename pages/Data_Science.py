@@ -34,14 +34,15 @@ class DataScienceDashboard:
 
     @staticmethod
     def reload_page():
-        try:
-            if hasattr(st, "rerun"):
-                st.rerun()
-                return
-        except Exception:
-            pass
-        st.markdown("<script>window.location.reload();</script>",
-                    unsafe_allow_html=True)
+        """Reload page by logging out and redirecting to login."""
+        st.query_params.clear()
+        if "token" in st.session_state:
+            del st.session_state["token"]
+        if "user" in st.session_state:
+            del st.session_state["user"]
+        if "role" in st.session_state:
+            del st.session_state["role"]
+        st.switch_page("Home.py")
         st.stop()
 
     def authenticate(self):
@@ -134,12 +135,101 @@ class DataScienceDashboard:
                 st.info("No 'upload_date' field available")
 
         st.markdown("---")
+        
+        # Additional Visualizations Section
+        # Advanced Analytics - Compact View
+        with st.expander("📊 Advanced Dataset Analytics", expanded=False):
+            if self.df is not None and not self.df.empty:
+                # Row 1: Multiple small charts
+                r1_col1, r1_col2, r1_col3, r1_col4 = st.columns([1, 1, 1, 1])
+                
+                with r1_col1:
+                    st.markdown("#### 📏 Size")
+                    if "rows" in self.df.columns and "columns" in self.df.columns:
+                        render_chart(self.df, "scatter", x="columns", y="rows",
+                                   title="Rows vs Cols")
+                
+                with r1_col2:
+                    st.markdown("#### 👥 Uploader")
+                    if "uploaded_by" in self.df.columns:
+                        render_chart(self.df, "bar", x="uploaded_by",
+                                   title="By Uploader")
+                
+                with r1_col3:
+                    st.markdown("#### 📊 Rows Dist")
+                    if "rows" in self.df.columns:
+                        render_chart(self.df, "histogram", x="rows",
+                                   title="Rows Dist")
+                
+                with r1_col4:
+                    st.markdown("#### 📦 Stats")
+                    if "rows" in self.df.columns:
+                        render_chart(self.df, "box", y="rows",
+                                   title="Rows Box")
+                
+                # Row 2: Time-based
+                if "upload_date" in self.df.columns:
+                    try:
+                        df_time = self.df.copy()
+                        df_time['upload_date'] = pd.to_datetime(df_time['upload_date'], errors='coerce')
+                        df_time = df_time.dropna(subset=['upload_date'])
+                        
+                        if not df_time.empty:
+                            df_time['day_of_week'] = df_time['upload_date'].dt.day_name()
+                            df_time['month'] = df_time['upload_date'].dt.to_period('M').astype(str)
+                            
+                            time_col1, time_col2 = st.columns([1, 1])
+                            
+                            with time_col1:
+                                month_counts = df_time['month'].value_counts().sort_index()
+                                month_df = pd.DataFrame({'month': month_counts.index, 'count': month_counts.values})
+                                render_chart(month_df, "bar", x="month", y="count",
+                                           title="By Month")
+                            
+                            with time_col2:
+                                day_counts = df_time['day_of_week'].value_counts()
+                                day_order = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+                                day_counts = day_counts.reindex([d for d in day_order if d in day_counts.index], fill_value=0)
+                                day_df = pd.DataFrame({'day': day_counts.index, 'count': day_counts.values})
+                                render_chart(day_df, "bar", x="day", y="count",
+                                           title="By Day")
+                    except Exception:
+                        pass
+                
+                # Row 3: Uploader performance
+                if "uploaded_by" in self.df.columns and "rows" in self.df.columns:
+                    uploader_col1, uploader_col2 = st.columns([1, 1])
+                    
+                    with uploader_col1:
+                        uploader_rows = self.df.groupby('uploaded_by')['rows'].sum().reset_index()
+                        uploader_rows.columns = ['uploaded_by', 'total_rows']
+                        render_chart(uploader_rows, "bar", x="uploaded_by", y="total_rows",
+                                   title="Total Rows")
+                    
+                    with uploader_col2:
+                        if "columns" in self.df.columns:
+                            df_heatmap = self.df.copy()
+                            df_heatmap['size_category'] = pd.cut(
+                                df_heatmap['rows'] * df_heatmap['columns'],
+                                bins=3,
+                                labels=['Small', 'Medium', 'Large']
+                            )
+                            render_chart(df_heatmap, "heatmap", groupby=["uploaded_by", "size_category"],
+                                       title="Uploader Heatmap")
 
-        st.subheader("📄 Available Datasets")
-        if self.df is None or self.df.empty:
-            st.info("No datasets found.")
-        else:
-            st.dataframe(self.df, width='stretch', height=360)
+        st.markdown("---")
+
+        st.subheader("📄 Datasets Data & AI Assistant")
+        data_col, ai_col = st.columns([2, 1])
+        
+        with data_col:
+            if self.df is None or self.df.empty:
+                st.info("No datasets found.")
+            else:
+                st.dataframe(self.df, height=500)
+        
+        with ai_col:
+            self.render_ai_panel()
 
         st.markdown("---")
 
@@ -162,7 +252,7 @@ class DataScienceDashboard:
                         load_csv_to_table(str(
                             tmp), "datasets_metadata", if_exists="replace" if mode == "replace" else "append")
                         st.success("Uploaded successfully.")
-                        self.reload_page()
+                        st.rerun()
                     except Exception as e:
                         st.error(f"Upload failed: {e}")
 
@@ -177,95 +267,130 @@ class DataScienceDashboard:
             upload_date = st.date_input("Upload date")
             add = st.form_submit_button("Add")
             if add:
-                try:
-                    tmpdir = Path("DATA")
-                    tmpdir.mkdir(exist_ok=True)
-                    tmpfile = tmpdir / \
-                        f"tmp_new_dataset_{datetime.now().strftime('%Y%m%d%H%M%S')}.csv"
-                    pd.DataFrame([{
-                        "name": nm,
-                        "rows": int(rows),
-                        "columns": int(cols),
-                        "uploaded_by": uploaded_by,
-                        "upload_date": upload_date.isoformat()
-                    }]).to_csv(tmpfile, index=False)
-                    load_csv_to_table(
-                        str(tmpfile), "datasets_metadata", if_exists="append")
-                    st.success("Dataset added.")
-                    self.reload_page()
-                except Exception as e:
-                    st.error(f"Failed to add dataset: {e}")
+                # Validate required fields
+                if not nm or not nm.strip():
+                    st.error("Dataset name is required.")
+                elif rows <= 0:
+                    st.error("Rows must be greater than 0.")
+                elif cols <= 0:
+                    st.error("Columns must be greater than 0.")
+                elif not uploaded_by or not uploaded_by.strip():
+                    st.error("Uploaded by is required.")
+                else:
+                    try:
+                        tmpdir = Path("DATA")
+                        tmpdir.mkdir(exist_ok=True)
+                        tmpfile = tmpdir / \
+                            f"tmp_new_dataset_{datetime.now().strftime('%Y%m%d%H%M%S')}.csv"
+                        pd.DataFrame([{
+                            "name": nm.strip(),
+                            "rows": int(rows),
+                            "columns": int(cols),
+                            "uploaded_by": uploaded_by.strip(),
+                            "upload_date": upload_date.isoformat()
+                        }]).to_csv(tmpfile, index=False)
+                        load_csv_to_table(
+                            str(tmpfile), "datasets_metadata", if_exists="append")
+                        st.success("Dataset added successfully!")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Failed to add dataset: {e}")
 
     def render_ai_panel(self):
-        st.subheader("🧠 Data AI")
-
-        history = load_ai_history(self.username, "data") or []
-        if not history:
-            st.info("No chat history yet.")
-        else:
-            for msg in history:
-                who = "You" if msg["role"] == "user" else "AI"
-                cls = "ai-chat-bubble-user" if msg["role"] == "user" else "ai-chat-bubble-assistant"
-                st.markdown(
-                    f"<div class='{cls}'><strong>{who}:</strong> {msg['content']}</div>", unsafe_allow_html=True)
-                st.caption(msg["timestamp"])
+        st.markdown("### 🧠 Data AI Assistant")
+        
+        # Example questions
+        example_questions = [
+            "What is the total size of all datasets?",
+            "Which user has uploaded the most datasets?",
+            "Show me dataset upload trends",
+            "What is the average number of rows per dataset?",
+            "Analyse the dataset size distribution",
+            "Which datasets have the most columns?"
+        ]
+        
+        st.markdown("<div style='margin-bottom: 10px;'><strong style='color: #FF1493;'>💡 Example Questions:</strong></div>", unsafe_allow_html=True)
+        
+        # Display example questions as buttons
+        for i, question in enumerate(example_questions):
+            if st.button(question, key=f"example_data_{i}"):
+                # Set the question in session state to populate input
+                st.session_state["data_query"] = question
+                st.rerun()
 
         st.markdown("---")
-        q = st.text_input("Ask the Data AI assistant...", key="data_query")
-        if st.button("Send Data", key="data_send"):
-            if q:
-                try:
-                    save_ai_message(self.username, "data", "user", q)
-                except Exception:
-                    pass
-                chat_history = [{"role": r["role"], "content": r["content"]}
-                                for r in history]
-                if get_gemini_response:
-                    placeholder = st.empty()
-                    full = ""
-                    try:
-                        stream = get_gemini_response(q, chat_history, "data")
-                        for chunk in stream:
-                            if hasattr(chunk, "text"):
-                                full += chunk.text
-                                placeholder.markdown(
-                                    f"<div class='ai-response'>{full}▌</div>", unsafe_allow_html=True)
-                        placeholder.markdown(
-                            f"<div class='ai-response'>{full}</div>", unsafe_allow_html=True)
-                        save_ai_message(self.username, "data",
-                                        "assistant", full)
-                    except Exception as e:
-                        st.error(f"AI error: {e}")
-                else:
-                    fallback = f"[Local] Received: {q}"
+
+        history = load_ai_history(self.username, "data") or []
+        
+        # Chat history container
+        chat_container = st.container()
+        with chat_container:
+            if history:
+                for msg in history:
+                    who = "You" if msg["role"] == "user" else "AI"
+                    cls = "ai-chat-bubble-user" if msg["role"] == "user" else "ai-chat-bubble-assistant"
                     st.markdown(
-                        f"<div class='ai-response'>{fallback}</div>", unsafe_allow_html=True)
+                        f"<div class='{cls}'><strong>{who}:</strong> {msg['content']}</div>", unsafe_allow_html=True)
+                    st.caption(msg["timestamp"])
+            else:
+                st.info("No chat history. Try asking a question above!")
+
+        st.markdown("---")
+        
+        # Input and send
+        q = st.text_input("Ask the Data AI assistant...", key="data_query")
+        
+        col1, col2 = st.columns([3, 1])
+        with col1:
+            if st.button("Send", key="data_send"):
+                if q:
                     try:
-                        save_ai_message(self.username, "data",
-                                        "assistant", fallback)
+                        save_ai_message(self.username, "data", "user", q)
                     except Exception:
                         pass
-                self.reload_page()
-
-        if st.button("🧹 Clear Data Chat History"):
-            try:
-                delete_history = delete_ai_history(self.username, "data")
-                st.success("Cleared.")
-                self.reload_page()
-            except Exception as e:
-                st.error(f"Failed: {e}")
+                    chat_history = [{"role": r["role"], "content": r["content"]}
+                                    for r in history]
+                    if get_gemini_response:
+                        placeholder = st.empty()
+                        full = ""
+                        try:
+                            stream = get_gemini_response(q, chat_history, "data")
+                            for chunk in stream:
+                                if hasattr(chunk, "text"):
+                                    full += chunk.text
+                                    placeholder.markdown(
+                                        f"<div class='ai-response'>{full}▌</div>", unsafe_allow_html=True)
+                            placeholder.markdown(
+                                f"<div class='ai-response'>{full}</div>", unsafe_allow_html=True)
+                            save_ai_message(self.username, "data",
+                                            "assistant", full)
+                        except Exception as e:
+                            st.error(f"AI error: {e}")
+                    else:
+                        fallback = f"[Local] Received: {q}"
+                        st.markdown(
+                            f"<div class='ai-response'>{fallback}</div>", unsafe_allow_html=True)
+                        try:
+                            save_ai_message(self.username, "data",
+                                            "assistant", fallback)
+                        except Exception:
+                            pass
+                    st.rerun()
+        
+        with col2:
+            if st.button("🧹 Clear", key="data_clear"):
+                try:
+                    delete_ai_history(self.username, "data")
+                    st.success("Cleared.")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Failed: {e}")
 
     def run(self):
         self.authenticate()
         self.render_header()
         self.load_data()
-        main_col, ai_col = st.columns([8, 3])
-
-        with main_col:
-            self.render_main_panel()
-
-        with ai_col:
-            self.render_ai_panel()
+        self.render_main_panel()
 
 
 if __name__ == "__main__":

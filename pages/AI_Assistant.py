@@ -18,14 +18,16 @@ class AIAssistantPage:
 
     @staticmethod
     def reload_page():
-        if hasattr(st, "rerun"):
-            st.rerun()
-        elif hasattr(st, "experimental_rerun"):
-            st.experimental_rerun()
-        else:
-            st.markdown("<script>window.location.reload();</script>",
-                        unsafe_allow_html=True)
-            st.stop()
+        """Reload page by logging out and redirecting to login."""
+        st.query_params.clear()
+        if "token" in st.session_state:
+            del st.session_state["token"]
+        if "user" in st.session_state:
+            del st.session_state["user"]
+        if "role" in st.session_state:
+            del st.session_state["role"]
+        st.switch_page("Home.py")
+        st.stop()
 
     def authenticate(self):
         if "user" not in self.qp or not self.qp.get("user"):
@@ -141,7 +143,7 @@ class AIAssistantPage:
             save_ai_message(self.username, self.role or "general",
                             "assistant", fallback)
 
-        self.reload_page()
+        st.rerun()
 
     def run(self):
         self.authenticate()
